@@ -9,11 +9,13 @@ function makeCollection(
 	name: string,
 	configDir: string,
 	configPath: string,
+	markdownDir?: string,
 ): Collection {
 	return {
 		name,
 		configDir,
 		configPath,
+		markdownDir: markdownDir ?? configDir,
 		entries: [],
 	};
 }
@@ -46,8 +48,9 @@ describe("buildDeclarationContent", () => {
 		const content = buildDeclarationContent(store, outDir);
 
 		expect(content).toContain("import type { z } from 'zod'");
-		expect(content).toContain("import type { schema as schema_blog }");
-		expect(content).toContain("'blog': z.infer<typeof schema_blog>");
+		expect(content).toContain("import type * as _blog from");
+		expect(content).toContain("_ResolveContent");
+		expect(content).toContain("'blog': z.infer<_ResolveContent<typeof _blog>>");
 	});
 
 	it("generates multiple collection entries", () => {
@@ -70,8 +73,8 @@ describe("buildDeclarationContent", () => {
 
 		const content = buildDeclarationContent(store, outDir);
 
-		expect(content).toContain("'blog': z.infer<typeof schema_blog>");
-		expect(content).toContain("'docs': z.infer<typeof schema_docs>");
+		expect(content).toContain("'blog': z.infer<_ResolveContent<typeof _blog>>");
+		expect(content).toContain("'docs': z.infer<_ResolveContent<typeof _docs>>");
 	});
 
 	it("uses relative import paths from the output directory", () => {
@@ -117,9 +120,9 @@ describe("buildDeclarationContent", () => {
 
 		const content = buildDeclarationContent(store, outDir);
 
-		expect(content).toContain("schema_docs_guides");
+		expect(content).toContain("_docs_guides");
 		expect(content).toContain(
-			"'docs/guides': z.infer<typeof schema_docs_guides>",
+			"'docs/guides': z.infer<_ResolveContent<typeof _docs_guides>>",
 		);
 	});
 
