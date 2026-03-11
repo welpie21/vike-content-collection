@@ -25,12 +25,6 @@ export function generateDeclarationFile(
 	writeFileSync(outFile, content);
 }
 
-const RESOLVE_CONTENT_HELPER =
-	`type _ResolveContent<M> = M extends { Content: infer C } ? C\n` +
-	`  : M extends { default: { Content: infer C } } ? C\n` +
-	`  : M extends { default: infer D } ? D\n` +
-	`  : never\n`;
-
 export function buildDeclarationContent(
 	store: CollectionStore,
 	outDir: string,
@@ -57,10 +51,10 @@ export function buildDeclarationContent(
 			.replace(/\.(ts|js|mts|mjs)$/, "");
 
 		imports.push(
-			`import type * as _${safeName} from '${configRelative}'`,
+			`import type { schema as schema_${safeName} } from '${configRelative}'`,
 		);
 		mapEntries.push(
-			`    '${collection.name}': z.infer<_ResolveContent<typeof _${safeName}>>`,
+			`    '${collection.name}': z.infer<typeof schema_${safeName}>`,
 		);
 	}
 
@@ -69,8 +63,6 @@ export function buildDeclarationContent(
 		`import type { z } from 'zod'\n` +
 		imports.join("\n") +
 		"\n\n" +
-		RESOLVE_CONTENT_HELPER +
-		"\n" +
 		`declare module 'vike-content-collection' {\n` +
 		`  interface CollectionMap {\n` +
 		mapEntries.join("\n") +

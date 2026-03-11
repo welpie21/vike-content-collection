@@ -3,10 +3,14 @@ import type { ZodSchema } from "zod";
 declare global {
 	namespace Vike {
 		interface Config {
-			Content?: ZodSchema;
+			Content?: {
+				schema: ZodSchema;
+			};
 		}
 		interface ConfigResolved {
-			Content?: ZodSchema;
+			Content?: {
+				schema: ZodSchema;
+			};
 		}
 	}
 }

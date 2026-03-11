@@ -22,7 +22,6 @@ function makeCollection(
 		name,
 		configDir,
 		configPath: `${configDir}/+Content.ts`,
-		markdownDir: configDir,
 		entries,
 	};
 }
