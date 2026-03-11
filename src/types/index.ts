@@ -9,16 +9,16 @@ export type { FrontmatterLineMap, ParsedMarkdown } from "../plugin/markdown.js";
 export type { ContentCollectionPluginOptions } from "../plugin/vite-plugin.js";
 
 export interface ContentCollectionConfig {
-	schema: ZodSchema;
+	Content: ZodSchema;
 }
 
 /**
  * Augmentable interface mapping collection names to their frontmatter types.
- * The generated declaration file populates this with z.infer<typeof schema>
+ * The generated declaration file populates this with z.infer<typeof Content>
  * for each +Content.ts found in the project.
  */
-// biome-ignore lint/complexity/noBannedTypes: intentional empty type for declaration merging
-export type CollectionMap = {};
+// biome-ignore lint/suspicious/noEmptyInterface: intentional empty interface for declaration merging
+export interface CollectionMap {}
 
 export interface TypedCollectionEntry<T> {
 	filePath: string;

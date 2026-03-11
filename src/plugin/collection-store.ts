@@ -18,6 +18,8 @@ export interface Collection {
 	configDir: string;
 	/** Absolute path to the +Content.ts file */
 	configPath: string;
+	/** Directory where markdown files are searched */
+	markdownDir: string;
 	/** Resolved entries for this collection */
 	entries: CollectionEntry[];
 }
