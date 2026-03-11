@@ -1,12 +1,15 @@
-import type { ZodSchema } from 'zod'
+import type { ZodSchema } from "zod";
 
-export type { ContentCollectionPluginOptions } from '../plugin/vite-plugin.js'
-export type { CollectionEntry, Collection } from '../plugin/collection-store.js'
-export type { ParsedMarkdown, FrontmatterLineMap } from '../plugin/markdown.js'
-export type { ValidationIssue } from '../plugin/errors.js'
+export type {
+	Collection,
+	CollectionEntry,
+} from "../plugin/collection-store.js";
+export type { ValidationIssue } from "../plugin/errors.js";
+export type { FrontmatterLineMap, ParsedMarkdown } from "../plugin/markdown.js";
+export type { ContentCollectionPluginOptions } from "../plugin/vite-plugin.js";
 
 export interface ContentCollectionConfig {
-  schema: ZodSchema
+	schema: ZodSchema;
 }
 
 /**
@@ -14,11 +17,11 @@ export interface ContentCollectionConfig {
  * The generated declaration file populates this with z.infer<typeof schema>
  * for each +Content.ts found in the project.
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface CollectionMap {}
+// biome-ignore lint/complexity/noBannedTypes: intentional empty type for declaration merging
+export type CollectionMap = {};
 
 export interface TypedCollectionEntry<T> {
-  filePath: string
-  frontmatter: T
-  content: string
+	filePath: string;
+	frontmatter: T;
+	content: string;
 }

@@ -1,18 +1,16 @@
-import type { ZodSchema } from 'zod'
+import type { ZodSchema } from "zod";
 
 declare global {
-  namespace Vike {
-    interface Config {
-      Content?: {
-        schema: ZodSchema
-      }
-    }
-    interface ConfigResolved {
-      Content?: {
-        schema: ZodSchema
-      }
-    }
-  }
+	namespace Vike {
+		interface Config {
+			Content?: {
+				schema: ZodSchema;
+			};
+		}
+		interface ConfigResolved {
+			Content?: {
+				schema: ZodSchema;
+			};
+		}
+	}
 }
-
-export {}

@@ -1,14 +1,16 @@
-export { vikeContentCollectionPlugin as default } from './plugin/vite-plugin.js'
-export { vikeContentCollectionPlugin } from './plugin/vite-plugin.js'
-export { getCollection } from './runtime/get-collection.js'
+export {
+	vikeContentCollectionPlugin as default,
+	vikeContentCollectionPlugin,
+} from "./plugin/vite-plugin.js";
+export { getCollection } from "./runtime/get-collection.js";
 export type {
-  ContentCollectionPluginOptions,
-  ContentCollectionConfig,
-  CollectionEntry,
-  Collection,
-  CollectionMap,
-  TypedCollectionEntry,
-  ParsedMarkdown,
-  FrontmatterLineMap,
-  ValidationIssue,
-} from './types/index.js'
+	Collection,
+	CollectionEntry,
+	CollectionMap,
+	ContentCollectionConfig,
+	ContentCollectionPluginOptions,
+	FrontmatterLineMap,
+	ParsedMarkdown,
+	TypedCollectionEntry,
+	ValidationIssue,
+} from "./types/index.js";
