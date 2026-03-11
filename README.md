@@ -80,9 +80,47 @@ The plugin will automatically discover all `.md` files under the directory that 
 
 ### Accessing collection data
 
+#### Via `getCollection()` (recommended)
+
+The plugin exports a typesafe `getCollection()` function. Call it with the collection name (the directory path relative to the content root where `+Content.ts` lives):
+
+```ts
+// pages/blog/+data.ts
+import { getCollection } from 'vike-content-collection'
+
+export function data() {
+  const posts = getCollection('blog')
+  // posts is fully typed: { filePath, frontmatter, content }[]
+  // frontmatter type is inferred from the zod schema in +Content.ts
+  return { posts }
+}
+```
+
+The collection name is derived from the directory structure. For example:
+
+| `+Content.ts` location             | Collection name          |
+| ----------------------------------- | ------------------------ |
+| `pages/blog/+Content.ts`           | `"blog"`                 |
+| `pages/docs/guides/+Content.ts`    | `"docs/guides"`          |
+
+#### Type generation
+
+The plugin automatically generates a `.vike-content-collection/types.d.ts` declaration file that maps each collection name to its inferred zod schema type. To enable type inference, add the generated directory to your `tsconfig.json`:
+
+```json
+{
+  "include": [
+    "src",
+    ".vike-content-collection"
+  ]
+}
+```
+
+The declaration file is regenerated on every build and during HMR in development. It imports the `schema` export from each `+Content.ts` and uses `z.infer<typeof schema>` to derive the frontmatter types, so `getCollection()` returns fully typed entries without any manual type annotations.
+
 #### Via the virtual module
 
-Other Vite plugins or application code can import collection data through the virtual module:
+Other Vite plugins or application code can also import collection data through the virtual module:
 
 ```ts
 import { collections } from 'virtual:content-collection'
@@ -128,38 +166,45 @@ vikeContentCollection({
 
 ## How It Works
 
-1. **Scan** -- On `buildStart`, the plugin recursively searches `contentDir` for `+Content.ts` files.
+1. **Scan** -- On `buildStart`, the plugin recursively searches `contentDir` for `+Content.ts` files. Each must contain `export const schema`.
 2. **Parse** -- For each `+Content.ts` found, it collects all `.md` files in that directory tree and parses their YAML frontmatter using [gray-matter](https://github.com/jonschlinkert/gray-matter).
 3. **Validate** -- Each parsed frontmatter object is validated against the zod schema. On failure, zod error paths are mapped back to specific line numbers in the source markdown file.
-4. **Store** -- Validated entries are held in an in-memory store, keyed by collection directory.
-5. **Serve** -- A virtual module (`virtual:content-collection`) exposes the serialized collection data to application code and other plugins.
-6. **HMR** -- During development, changes to `.md` files or `+Content.ts` configs trigger re-parsing and re-validation. The virtual module is invalidated so consumers receive updated data.
+4. **Store** -- Validated entries are held in an in-memory store, keyed by collection name (directory path relative to content root).
+5. **Generate types** -- A `.vike-content-collection/types.d.ts` declaration file is emitted, importing each `schema` and using `z.infer` to map collection names to their frontmatter types. This powers the typesafe `getCollection()` function.
+6. **Serve** -- A virtual module (`virtual:content-collection`) exposes the serialized collection data to application code and other plugins.
+7. **HMR** -- During development, changes to `.md` files or `+Content.ts` configs trigger re-parsing, re-validation, and type regeneration. The virtual module is invalidated so consumers receive updated data.
 
 ## Exported Types
 
 The package exports the following TypeScript types from the main entry point:
 
 ```ts
+import { getCollection } from 'vike-content-collection'
+
 import type {
   ContentCollectionPluginOptions,
   ContentCollectionConfig,
   CollectionEntry,
   Collection,
+  CollectionMap,
+  TypedCollectionEntry,
   ParsedMarkdown,
   FrontmatterLineMap,
   ValidationIssue,
 } from 'vike-content-collection'
 ```
 
-| Type                             | Description                                                           |
-| -------------------------------- | --------------------------------------------------------------------- |
-| `ContentCollectionPluginOptions` | Options accepted by the `vikeContentCollection()` factory.            |
-| `ContentCollectionConfig`        | Shape of the `+Content.ts` export (`{ schema: ZodSchema }`).         |
-| `CollectionEntry`                | A single validated markdown entry (frontmatter, content, file path).  |
-| `Collection`                     | A full collection (config path, directory, array of entries).         |
-| `ParsedMarkdown`                 | Result of parsing a markdown file (frontmatter, content, line map).   |
-| `FrontmatterLineMap`             | Maps frontmatter key paths to their 1-based line numbers.             |
-| `ValidationIssue`                | A single validation error with file, line, path, and message.         |
+| Type                             | Description                                                                   |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `ContentCollectionPluginOptions` | Options accepted by the `vikeContentCollection()` factory.                    |
+| `ContentCollectionConfig`        | Shape of the `+Content.ts` export (`{ schema: ZodSchema }`).                 |
+| `CollectionEntry`                | A single validated markdown entry (frontmatter, content, file path).          |
+| `Collection`                     | A full collection (name, config path, directory, array of entries).           |
+| `CollectionMap`                  | Augmentable interface mapping collection names to frontmatter types.          |
+| `TypedCollectionEntry<T>`        | A collection entry with typed frontmatter, returned by `getCollection()`.    |
+| `ParsedMarkdown`                 | Result of parsing a markdown file (frontmatter, content, line map).           |
+| `FrontmatterLineMap`             | Maps frontmatter key paths to their 1-based line numbers.                     |
+| `ValidationIssue`                | A single validation error with file, line, path, and message.                 |
 
 ## Requirements
 

@@ -12,6 +12,8 @@ export interface CollectionEntry {
 }
 
 export interface Collection {
+  /** Derived collection name (relative path from content root) */
+  name: string
   /** Directory where the +Content.ts config lives */
   configDir: string
   /** Absolute path to the +Content.ts file */
@@ -33,6 +35,13 @@ export class CollectionStore {
 
   get(configDir: string): Collection | undefined {
     return this.collections.get(configDir)
+  }
+
+  getByName(name: string): Collection | undefined {
+    for (const collection of this.collections.values()) {
+      if (collection.name === name) return collection
+    }
+    return undefined
   }
 
   getAll(): Collection[] {
@@ -65,4 +74,18 @@ export class CollectionStore {
     }
     return result
   }
+}
+
+let globalStore: CollectionStore | null = null
+
+export function getGlobalStore(): CollectionStore {
+  if (!globalStore) {
+    globalStore = new CollectionStore()
+  }
+  return globalStore
+}
+
+/** Reset the global store (for testing) */
+export function resetGlobalStore(): void {
+  globalStore = null
 }

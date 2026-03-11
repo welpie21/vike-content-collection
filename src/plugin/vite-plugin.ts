@@ -1,19 +1,20 @@
 import { type Plugin, type ResolvedConfig } from 'vite'
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { resolve, dirname, relative, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { ZodSchema } from 'zod'
 import { parseMarkdownFile } from './markdown.js'
 import { validateFrontmatter } from './validation.js'
-import { CollectionStore, type CollectionEntry } from './collection-store.js'
+import { getGlobalStore, type CollectionEntry } from './collection-store.js'
 import { ContentCollectionError } from './errors.js'
+import { generateDeclarationFile } from './generate-types.js'
 
 const VIRTUAL_MODULE_ID = 'virtual:content-collection'
 const RESOLVED_VIRTUAL_MODULE_ID = '\0' + VIRTUAL_MODULE_ID
 const CONTENT_CONFIG_PATTERN = /\+Content\.(ts|js|mts|mjs)$/
 
 export interface ContentCollectionPluginOptions {
-  /** Glob patterns for directories to scan. Defaults to pages directory. */
+  /** Directory to scan for +Content.ts files, relative to project root. Defaults to "pages". */
   contentDir?: string
 }
 
@@ -22,7 +23,19 @@ export function vikeContentCollectionPlugin(
 ): Plugin {
   let config: ResolvedConfig
   let root: string
-  const store = new CollectionStore()
+  const store = getGlobalStore()
+
+  function getContentRoot(): string {
+    return options.contentDir
+      ? resolve(root, options.contentDir)
+      : resolve(root, 'pages')
+  }
+
+  function deriveCollectionName(configPath: string): string {
+    const configDir = dirname(configPath)
+    const name = relative(getContentRoot(), configDir).replace(/\\/g, '/')
+    return name || '.'
+  }
 
   async function loadSchema(configPath: string): Promise<ZodSchema> {
     const fileUrl = pathToFileURL(configPath).href
@@ -31,7 +44,7 @@ export function vikeContentCollectionPlugin(
     const schema = mod.schema ?? mod.default?.schema ?? mod.default
     if (!schema || typeof schema.safeParse !== 'function') {
       throw new ContentCollectionError(
-        'Must export a zod schema as `schema` or as default export',
+        'Must export a zod schema via `export const schema`',
         configPath,
       )
     }
@@ -70,6 +83,7 @@ export function vikeContentCollectionPlugin(
 
   async function processCollection(configPath: string): Promise<void> {
     const configDir = dirname(configPath)
+    const name = deriveCollectionName(configPath)
     const schema = await loadSchema(configPath)
     const mdFiles = findMarkdownFiles(configDir)
 
@@ -92,19 +106,16 @@ export function vikeContentCollectionPlugin(
       })
     }
 
-    store.set(configDir, { configDir, configPath, entries })
+    store.set(configDir, { name, configDir, configPath, entries })
   }
 
   async function scanAndProcess(): Promise<void> {
     store.clear()
-    const scanDir = options.contentDir
-      ? resolve(root, options.contentDir)
-      : resolve(root, 'pages')
-
-    const configFiles = findContentConfigs(scanDir)
+    const configFiles = findContentConfigs(getContentRoot())
     for (const configPath of configFiles) {
       await processCollection(configPath)
     }
+    generateDeclarationFile(store, root)
   }
 
   return {
@@ -149,6 +160,8 @@ export function vikeContentCollectionPlugin(
           }
         }
       }
+
+      generateDeclarationFile(store, root)
 
       const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_MODULE_ID)
       if (mod) {
