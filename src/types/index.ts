@@ -21,6 +21,7 @@ export interface ContentCollectionConfig {
 export type CollectionMap = {};
 
 export interface TypedCollectionEntry<T> {
+	slug: string;
 	filePath: string;
 	frontmatter: T;
 	content: string;

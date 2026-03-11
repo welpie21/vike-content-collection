@@ -47,6 +47,7 @@ export function getCollectionEntry(
 	}
 
 	return {
+		slug: entry.slug,
 		filePath: entry.filePath,
 		frontmatter: entry.frontmatter,
 		content: entry.content,
