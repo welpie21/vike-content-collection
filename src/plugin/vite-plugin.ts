@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Plugin, ResolvedConfig } from "vite";
 import type { ZodSchema } from "zod";
@@ -88,9 +88,11 @@ export function vikeContentCollectionPlugin(
 		const mdFiles = findMarkdownFiles(configDir);
 
 		const entries: CollectionEntry[] = [];
+		const index: Record<string, CollectionEntry> = {};
 
 		for (const mdFile of mdFiles) {
 			const raw = readFileSync(mdFile, "utf-8");
+			const slug = basename(mdFile).replace(/\.\w+$/, "");
 			const parsed = parseMarkdownFile(raw, mdFile);
 			const validatedFrontmatter = validateFrontmatter(
 				parsed.frontmatter,
@@ -98,15 +100,20 @@ export function vikeContentCollectionPlugin(
 				mdFile,
 				parsed.lineMap,
 			);
-			entries.push({
+
+			const entry: CollectionEntry = {
+				slug,
 				filePath: mdFile,
 				frontmatter: validatedFrontmatter,
 				content: parsed.content,
 				lineMap: parsed.lineMap,
-			});
+			};
+
+			entries.push(entry);
+			index[slug] = entry;
 		}
 
-		store.set(configDir, { name, configDir, configPath, entries });
+		store.set(configDir, { name, configDir, configPath, entries, index });
 	}
 
 	async function scanAndProcess(): Promise<void> {

@@ -3,6 +3,7 @@ export {
 	vikeContentCollectionPlugin,
 } from "./plugin/vite-plugin.js";
 export { getCollection } from "./runtime/get-collection.js";
+export { getCollectionEntry } from "./runtime/get-collection-entry.js";
 export type {
 	Collection,
 	CollectionEntry,

@@ -1,6 +1,8 @@
 import type { FrontmatterLineMap } from "./markdown.js";
 
 export interface CollectionEntry {
+	/** The unique slug of the entry within the collection */
+	slug: string;
 	/** Absolute path to the markdown file */
 	filePath: string;
 	/** Validated frontmatter data */
@@ -20,6 +22,8 @@ export interface Collection {
 	configPath: string;
 	/** Resolved entries for this collection */
 	entries: CollectionEntry[];
+	/** Index of resolved entries by name */
+	index: Record<string, CollectionEntry>;
 }
 
 /**
