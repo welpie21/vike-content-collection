@@ -56,9 +56,7 @@ export function buildDeclarationContent(
 			.replace(/\\/g, "/")
 			.replace(/\.(ts|js|mts|mjs)$/, "");
 
-		imports.push(
-			`import type * as _${safeName} from '${configRelative}'`,
-		);
+		imports.push(`import type * as _${safeName} from '${configRelative}'`);
 		mapEntries.push(
 			`    '${collection.name}': z.infer<_ResolveContent<typeof _${safeName}>>`,
 		);

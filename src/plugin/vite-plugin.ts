@@ -146,7 +146,13 @@ export function vikeContentCollectionPlugin(
 			index[slug] = entry;
 		}
 
-		store.set(configDir, { name, configDir, configPath, markdownDir: mdDir, entries });
+		store.set(configDir, {
+			name,
+			configDir,
+			configPath,
+			markdownDir: mdDir,
+			entries,
+		});
 	}
 
 	async function scanAndProcess(): Promise<void> {
@@ -157,7 +163,13 @@ export function vikeContentCollectionPlugin(
 			const configDir = dirname(configPath);
 			const name = deriveCollectionName(configPath);
 			const markdownDir = resolveMarkdownDir(name);
-			store.set(configDir, { name, configDir, configPath, markdownDir, entries: [] });
+			store.set(configDir, {
+				name,
+				configDir,
+				configPath,
+				markdownDir,
+				entries: [],
+			});
 		}
 
 		generateDeclarationFile(store, root);
@@ -176,8 +188,8 @@ export function vikeContentCollectionPlugin(
 	}
 
 	return {
-		name: 'vike-content-collection',
-		enforce: 'pre' as const,
+		name: "vike-content-collection",
+		enforce: "pre" as const,
 
 		configResolved(resolvedConfig: { root: string }) {
 			root = resolvedConfig.root;
@@ -204,7 +216,13 @@ export function vikeContentCollectionPlugin(
 			}
 		},
 
-		async handleHotUpdate({ file, server }: { file: string; server: PluginDevServer }) {
+		async handleHotUpdate({
+			file,
+			server,
+		}: {
+			file: string;
+			server: PluginDevServer;
+		}) {
 			const isMarkdown = /\.md$/i.test(file);
 			const isContentConfig = CONTENT_CONFIG_PATTERN.test(file);
 
@@ -216,7 +234,13 @@ export function vikeContentCollectionPlugin(
 					const name = deriveCollectionName(file);
 					if (!store.has(configDir)) {
 						const markdownDir = resolveMarkdownDir(name);
-						store.set(configDir, { name, configDir, configPath: file, markdownDir, entries: [] });
+						store.set(configDir, {
+							name,
+							configDir,
+							configPath: file,
+							markdownDir,
+							entries: [],
+						});
 					}
 					await processCollection(file);
 				} else if (isMarkdown) {

@@ -124,10 +124,7 @@ export function getCollectionEntry(
 ): TypedCollectionEntry<Record<string, unknown>>[];
 export function getCollectionEntry(
 	name: string,
-	filter: Exclude<
-		CollectionEntryFilterInput<Record<string, unknown>>,
-		string
-	>,
+	filter: Exclude<CollectionEntryFilterInput<Record<string, unknown>>, string>,
 ): TypedCollectionEntry<Record<string, unknown>>[];
 export function getCollectionEntry(
 	name: string,
@@ -137,9 +134,7 @@ export function getCollectionEntry(
 	| TypedCollectionEntry<Record<string, unknown>>[]
 	| undefined {
 	const collection = resolveCollection(name);
-	const entries = toTypedEntries<Record<string, unknown>>(
-		collection.entries,
-	);
+	const entries = toTypedEntries<Record<string, unknown>>(collection.entries);
 
 	if (typeof filter === "string") {
 		return entries.find((e) => e.slug === filter);
@@ -147,9 +142,7 @@ export function getCollectionEntry(
 
 	if (Array.isArray(filter)) {
 		const filters = filter;
-		return entries.filter((e) =>
-			filters.some((f) => matchesFilter(e, f)),
-		);
+		return entries.filter((e) => filters.some((f) => matchesFilter(e, f)));
 	}
 
 	if (filter instanceof RegExp) {

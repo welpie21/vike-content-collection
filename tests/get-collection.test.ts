@@ -128,9 +128,9 @@ describe("getCollectionEntry", () => {
 		const entry = getCollectionEntry("blog", "post-1");
 
 		expect(entry).not.toBeArray();
-		expect(entry.filePath).toBe("/pages/blog/post-1.md");
-		expect(entry.frontmatter).toEqual({ title: "Post 1", index: 1 });
-		expect(entry.content).toBe("Body of post 1");
+		expect(entry?.filePath).toBe("/pages/blog/post-1.md");
+		expect(entry?.frontmatter).toEqual({ title: "Post 1", index: 1 });
+		expect(entry?.content).toBe("Body of post 1");
 	});
 
 	it("returns undefined when slug is not found", () => {
@@ -154,7 +154,7 @@ describe("getCollectionEntry", () => {
 
 		const entries = getCollectionEntry(
 			"blog",
-			(e) => (e.frontmatter as Record<string, unknown>).index! >= 3,
+			(e) => (e.frontmatter as Record<string, any>).index >= 3,
 		);
 
 		expect(entries).toBeArray();
@@ -195,6 +195,6 @@ describe("getCollectionEntry", () => {
 
 		const entry = getCollectionEntry("docs/guides", "post-0");
 
-		expect(entry.filePath).toBe("/pages/docs/guides/post-0.md");
+		expect(entry?.filePath).toBe("/pages/docs/guides/post-0.md");
 	});
 });
