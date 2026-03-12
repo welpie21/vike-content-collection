@@ -2,7 +2,10 @@ export {
 	vikeContentCollectionPlugin as default,
 	vikeContentCollectionPlugin,
 } from "./plugin/vite-plugin.js";
-export { getCollection } from "./runtime/get-collection.js";
+export {
+	getCollection,
+	getCollectionEntry,
+} from "./runtime/get-collection.js";
 export type {
 	Collection,
 	CollectionEntry,

@@ -125,7 +125,7 @@ The plugin automatically generates a `.vike-content-collection/types.d.ts` decla
 {
   "include": [
     "src",
-    ".vike-content-collection"
+	".vike-content-collection/**/*"
   ]
 }
 ```
