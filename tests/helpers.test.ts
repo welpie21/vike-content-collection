@@ -1,20 +1,20 @@
 import { describe, expect, it } from "bun:test";
-import { sortCollection, paginate } from "../src/runtime/helpers";
+import { paginate, sortCollection } from "../src/runtime/helpers";
 import type { TypedCollectionEntry } from "../src/types/index";
 
-interface TestFrontmatter {
+interface TestMetadata {
 	title: string;
 	date: Date;
 	order: number;
 }
 
-function makeEntries(count: number): TypedCollectionEntry<TestFrontmatter>[] {
-	const index: Record<string, TypedCollectionEntry<TestFrontmatter>> = {};
+function makeEntries(count: number): TypedCollectionEntry<TestMetadata>[] {
+	const index: Record<string, TypedCollectionEntry<TestMetadata>> = {};
 	return Array.from({ length: count }, (_, i) => {
-		const entry: TypedCollectionEntry<TestFrontmatter> = {
+		const entry: TypedCollectionEntry<TestMetadata> = {
 			filePath: `/pages/blog/post-${i}.md`,
 			slug: `post-${i}`,
-			frontmatter: {
+			metadata: {
 				title: `Post ${String.fromCharCode(90 - i)}`,
 				date: new Date(`2025-0${(i % 9) + 1}-15`),
 				order: count - i,
@@ -35,48 +35,48 @@ describe("sortCollection", () => {
 		const entries = makeEntries(3);
 		const sorted = sortCollection(entries, "title", "asc");
 
-		expect(sorted[0].frontmatter.title).toBe("Post X");
-		expect(sorted[1].frontmatter.title).toBe("Post Y");
-		expect(sorted[2].frontmatter.title).toBe("Post Z");
+		expect(sorted[0].metadata.title).toBe("Post X");
+		expect(sorted[1].metadata.title).toBe("Post Y");
+		expect(sorted[2].metadata.title).toBe("Post Z");
 	});
 
 	it("sorts by string field descending", () => {
 		const entries = makeEntries(3);
 		const sorted = sortCollection(entries, "title", "desc");
 
-		expect(sorted[0].frontmatter.title).toBe("Post Z");
-		expect(sorted[2].frontmatter.title).toBe("Post X");
+		expect(sorted[0].metadata.title).toBe("Post Z");
+		expect(sorted[2].metadata.title).toBe("Post X");
 	});
 
 	it("sorts by number field ascending", () => {
 		const entries = makeEntries(3);
 		const sorted = sortCollection(entries, "order", "asc");
 
-		expect(sorted[0].frontmatter.order).toBe(1);
-		expect(sorted[2].frontmatter.order).toBe(3);
+		expect(sorted[0].metadata.order).toBe(1);
+		expect(sorted[2].metadata.order).toBe(3);
 	});
 
 	it("sorts by number field descending", () => {
 		const entries = makeEntries(3);
 		const sorted = sortCollection(entries, "order", "desc");
 
-		expect(sorted[0].frontmatter.order).toBe(3);
-		expect(sorted[2].frontmatter.order).toBe(1);
+		expect(sorted[0].metadata.order).toBe(3);
+		expect(sorted[2].metadata.order).toBe(1);
 	});
 
 	it("sorts by date field", () => {
 		const entries = makeEntries(3);
 		const sorted = sortCollection(entries, "date", "asc");
 
-		expect(sorted[0].frontmatter.date.getMonth()).toBe(0);
-		expect(sorted[2].frontmatter.date.getMonth()).toBe(2);
+		expect(sorted[0].metadata.date.getMonth()).toBe(0);
+		expect(sorted[2].metadata.date.getMonth()).toBe(2);
 	});
 
 	it("defaults to ascending order", () => {
 		const entries = makeEntries(3);
 		const sorted = sortCollection(entries, "order");
 
-		expect(sorted[0].frontmatter.order).toBe(1);
+		expect(sorted[0].metadata.order).toBe(1);
 	});
 
 	it("does not mutate the original array", () => {
@@ -88,7 +88,7 @@ describe("sortCollection", () => {
 	});
 
 	it("handles empty array", () => {
-		const sorted = sortCollection<TestFrontmatter>([], "title");
+		const sorted = sortCollection<TestMetadata>([], "title");
 		expect(sorted).toEqual([]);
 	});
 });
@@ -137,7 +137,7 @@ describe("paginate", () => {
 	});
 
 	it("handles empty array", () => {
-		const result = paginate<TestFrontmatter>([], { pageSize: 5, currentPage: 1 });
+		const result = paginate<TestMetadata>([], { pageSize: 5, currentPage: 1 });
 
 		expect(result.items).toHaveLength(0);
 		expect(result.totalPages).toBe(1);

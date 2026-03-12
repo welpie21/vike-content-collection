@@ -8,10 +8,10 @@ import {
 
 describe("ContentCollectionError", () => {
 	it("formats message with file path only", () => {
-		const err = new ContentCollectionError("bad frontmatter", "/pages/post.md");
+		const err = new ContentCollectionError("bad metadata", "/pages/post.md");
 
 		expect(err.message).toBe(
-			"[vike-content-collection] /pages/post.md - bad frontmatter",
+			"[vike-content-collection] /pages/post.md - bad metadata",
 		);
 		expect(err.name).toBe("ContentCollectionError");
 		expect(err.filePath).toBe("/pages/post.md");

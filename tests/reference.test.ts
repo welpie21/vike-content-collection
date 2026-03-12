@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { reference, isReference, getReferenceTarget } from "../src/runtime/reference";
+import {
+	getReferenceTarget,
+	isReference,
+	reference,
+} from "../src/runtime/reference";
 
 describe("reference", () => {
 	it("creates a schema that accepts strings", () => {

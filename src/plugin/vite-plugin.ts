@@ -15,7 +15,7 @@ import { generateDeclarationFile } from "./generate-types";
 import { getLastModified } from "./git";
 import { parseMarkdownFile } from "./markdown";
 import { validateReferences } from "./reference-validator";
-import { validateFrontmatter } from "./validation";
+import { validateMetadata } from "./validation";
 
 const VIRTUAL_MODULE_ID = "virtual:content-collection";
 const RESOLVED_VIRTUAL_MODULE_ID = `\0${VIRTUAL_MODULE_ID}`;
@@ -40,7 +40,7 @@ export interface ContentCollectionPluginOptions {
 	contentRoot?: string;
 	/** Draft filtering options. */
 	drafts?: {
-		/** Frontmatter field name to check for draft status. Defaults to "draft". */
+		/** Metadata field name to check for draft status. Defaults to "draft". */
 		field?: string;
 		/** Force include/exclude drafts. Defaults to true in dev, false in production. */
 		includeDrafts?: boolean;
@@ -202,11 +202,11 @@ export function vikeContentCollectionPlugin(
 	function resolveSlug(
 		config: ResolvedContentConfig,
 		filePath: string,
-		frontmatter: Record<string, unknown>,
+		metadata: Record<string, unknown>,
 	): string {
 		const defaultSlug = deriveSlug(filePath);
 		if (!config.slug) return defaultSlug;
-		const input: SlugInput = { frontmatter, filePath, defaultSlug };
+		const input: SlugInput = { metadata, filePath, defaultSlug };
 		return config.slug(input);
 	}
 
@@ -217,35 +217,35 @@ export function vikeContentCollectionPlugin(
 	): CollectionEntry {
 		const raw = readFileSync(filePath, "utf-8");
 
-		let frontmatter: Record<string, unknown>;
+		let rawMetadata: Record<string, unknown>;
 		let content: string;
 		let lineMap: Record<string, number>;
 
 		if (config.type === "data") {
 			const parsed = parseDataFile(raw, filePath);
-			frontmatter = parsed.data;
+			rawMetadata = parsed.data;
 			content = "";
 			lineMap = {};
 		} else {
 			const parsed = parseMarkdownFile(raw, filePath);
-			frontmatter = parsed.frontmatter;
+			rawMetadata = parsed.metadata;
 			content = parsed.content;
 			lineMap = parsed.lineMap;
 		}
 
-		const validatedFrontmatter = validateFrontmatter(
-			frontmatter,
+		const validatedMetadata = validateMetadata(
+			rawMetadata,
 			config.schema,
 			filePath,
 			lineMap,
 		);
 
-		const slug = resolveSlug(config, filePath, validatedFrontmatter);
+		const slug = resolveSlug(config, filePath, validatedMetadata);
 		const draftField = getDraftField();
-		const isDraft = !!validatedFrontmatter[draftField];
+		const isDraft = !!validatedMetadata[draftField];
 
 		const computedInput: ComputedFieldInput = {
-			frontmatter: validatedFrontmatter,
+			metadata: validatedMetadata,
 			content,
 			filePath,
 			slug,
@@ -257,7 +257,7 @@ export function vikeContentCollectionPlugin(
 		return {
 			filePath,
 			slug,
-			frontmatter: validatedFrontmatter,
+			metadata: validatedMetadata,
 			content,
 			computed,
 			lastModified: lm,

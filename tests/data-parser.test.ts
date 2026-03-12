@@ -30,7 +30,10 @@ describe("parseDataFile", () => {
 
 	describe("YAML files", () => {
 		it("parses valid YAML", () => {
-			const result = parseDataFile("name: Alice\nage: 30\n", "/data/author.yaml");
+			const result = parseDataFile(
+				"name: Alice\nage: 30\n",
+				"/data/author.yaml",
+			);
 
 			expect(result.data).toEqual({ name: "Alice", age: 30 });
 		});
@@ -45,7 +48,10 @@ describe("parseDataFile", () => {
 			const yaml = "user:\n  name: Bob\n  roles:\n    - admin\n    - editor\n";
 			const result = parseDataFile(yaml, "/data/user.yaml");
 
-			expect(result.data.user).toEqual({ name: "Bob", roles: ["admin", "editor"] });
+			expect(result.data.user).toEqual({
+				name: "Bob",
+				roles: ["admin", "editor"],
+			});
 		});
 
 		it("throws for invalid YAML", () => {
@@ -90,8 +96,8 @@ describe("parseDataFile", () => {
 	});
 
 	it("throws for unsupported file extension", () => {
-		expect(() =>
-			parseDataFile("content", "/data/file.txt"),
-		).toThrow(/Unsupported data file extension/);
+		expect(() => parseDataFile("content", "/data/file.txt")).toThrow(
+			/Unsupported data file extension/,
+		);
 	});
 });

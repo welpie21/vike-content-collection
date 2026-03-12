@@ -22,7 +22,7 @@ export type {
 	ContentCollectionConfig,
 	ContentCollectionDefinition,
 	ContentCollectionPluginOptions,
-	FrontmatterLineMap,
+	MetadataLineMap,
 	ParsedMarkdown,
 	ResolvedContentConfig,
 	SlugInput,

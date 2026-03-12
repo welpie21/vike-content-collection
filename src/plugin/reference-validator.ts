@@ -2,7 +2,7 @@ import { isReference } from "../runtime/reference.js";
 import type { CollectionStore } from "./collection-store.js";
 
 /**
- * Walk frontmatter values looking for reference markers and verify the
+ * Walk metadata values looking for reference markers and verify the
  * referenced slugs exist in the target collection.  Logs warnings for
  * any broken references rather than throwing so the build can surface
  * all issues at once.
@@ -10,7 +10,7 @@ import type { CollectionStore } from "./collection-store.js";
 export function validateReferences(store: CollectionStore): void {
 	for (const collection of store.getAll()) {
 		for (const entry of collection.entries) {
-			walkAndValidate(entry.frontmatter, entry.filePath, store);
+			walkAndValidate(entry.metadata, entry.filePath, store);
 		}
 	}
 }
@@ -42,7 +42,7 @@ function walkAndValidate(
 }
 
 /**
- * Validate that all string values in frontmatter fields that were typed
+ * Validate that all string values in metadata fields that were typed
  * with `reference(collectionName)` actually point to existing slugs.
  *
  * This is invoked after all collections have been processed so every
@@ -63,7 +63,7 @@ export function validateReferenceFields(
 
 		for (const entry of collection.entries) {
 			for (const { path, targetCollection } of refFields) {
-				const value = getNestedValue(entry.frontmatter, path);
+				const value = getNestedValue(entry.metadata, path);
 				if (value == null) continue;
 
 				const slugs = Array.isArray(value) ? value : [value];

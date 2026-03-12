@@ -1,20 +1,20 @@
 import type { ZodError, ZodSchema } from "zod";
 import type { ValidationIssue } from "./errors.js";
 import { throwValidationError } from "./errors.js";
-import type { FrontmatterLineMap } from "./markdown.js";
+import type { MetadataLineMap } from "./markdown.js";
 
 /**
- * Validate frontmatter data against a zod schema.
- * On failure, maps each zod issue back to its line in the markdown file
+ * Validate metadata against a zod schema.
+ * On failure, maps each zod issue back to its line in the source file
  * and throws a formatted error that halts the build.
  */
-export function validateFrontmatter(
-	frontmatter: Record<string, unknown>,
+export function validateMetadata(
+	metadata: Record<string, unknown>,
 	schema: ZodSchema,
 	filePath: string,
-	lineMap: FrontmatterLineMap,
+	lineMap: MetadataLineMap,
 ): Record<string, unknown> {
-	const result = schema.safeParse(frontmatter);
+	const result = schema.safeParse(metadata);
 
 	if (result.success) {
 		return result.data as Record<string, unknown>;
@@ -27,7 +27,7 @@ export function validateFrontmatter(
 function mapZodErrors(
 	error: ZodError,
 	filePath: string,
-	lineMap: FrontmatterLineMap,
+	lineMap: MetadataLineMap,
 ): ValidationIssue[] {
 	return error.issues.map((issue) => {
 		const keyPath = issue.path.join(".");
@@ -48,7 +48,7 @@ function mapZodErrors(
  */
 function findLineForPath(
 	keyPath: string,
-	lineMap: FrontmatterLineMap,
+	lineMap: MetadataLineMap,
 ): number | undefined {
 	if (keyPath === "") return undefined;
 

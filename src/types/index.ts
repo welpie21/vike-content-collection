@@ -5,7 +5,7 @@ export type {
 	CollectionEntry,
 } from "../plugin/collection-store.js";
 export type { ValidationIssue } from "../plugin/errors.js";
-export type { FrontmatterLineMap, ParsedMarkdown } from "../plugin/markdown.js";
+export type { MetadataLineMap, ParsedMarkdown } from "../plugin/markdown.js";
 export type { ContentCollectionPluginOptions } from "../plugin/vite-plugin.js";
 
 export interface ContentCollectionConfig {
@@ -14,7 +14,7 @@ export interface ContentCollectionConfig {
 
 /** Input passed to computed field functions. */
 export interface ComputedFieldInput {
-	frontmatter: Record<string, unknown>;
+	metadata: Record<string, unknown>;
 	content: string;
 	filePath: string;
 	slug: string;
@@ -22,7 +22,7 @@ export interface ComputedFieldInput {
 
 /** Input passed to custom slug functions. */
 export interface SlugInput {
-	frontmatter: Record<string, unknown>;
+	metadata: Record<string, unknown>;
 	filePath: string;
 	defaultSlug: string;
 }
@@ -31,7 +31,7 @@ export interface SlugInput {
 export interface ContentCollectionDefinition {
 	/** Whether this is a markdown content collection or a data-only collection. Defaults to 'content'. */
 	type?: "content" | "data";
-	/** Zod schema for validating frontmatter (content) or the full data file (data). */
+	/** Zod schema for validating metadata (content) or the full data file (data). */
 	schema: ZodSchema;
 	/** Functions that derive additional data from each entry. */
 	computed?: Record<string, (input: ComputedFieldInput) => unknown>;
@@ -48,7 +48,7 @@ export interface ResolvedContentConfig {
 }
 
 /**
- * Augmentable interface mapping collection names to their frontmatter types.
+ * Augmentable interface mapping collection names to their metadata types.
  * The generated declaration file populates this with z.infer<typeof Content>
  * for each +Content.ts found in the project.
  */
@@ -58,7 +58,7 @@ export interface CollectionMap {}
 export interface TypedCollectionEntry<T> {
 	filePath: string;
 	slug: string;
-	frontmatter: T;
+	metadata: T;
 	content: string;
 	computed: Record<string, unknown>;
 	lastModified: Date | undefined;

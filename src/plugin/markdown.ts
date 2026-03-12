@@ -1,24 +1,24 @@
 import matter from "gray-matter";
 import { ContentCollectionError } from "./errors.js";
 
-export interface FrontmatterLineMap {
-	/** Maps a dot-separated frontmatter key path to its 1-based line number in the source file */
+export interface MetadataLineMap {
+	/** Maps a dot-separated metadata key path to its 1-based line number in the source file */
 	[keyPath: string]: number;
 }
 
 export interface ParsedMarkdown {
-	frontmatter: Record<string, unknown>;
+	metadata: Record<string, unknown>;
 	content: string;
-	lineMap: FrontmatterLineMap;
+	lineMap: MetadataLineMap;
 }
 
 /**
  * Build a map from YAML key paths to their 1-based line numbers.
  * Handles flat and nested keys (e.g. "title" -> 2, "metadata.name" -> 4).
  */
-function buildLineMap(raw: string): FrontmatterLineMap {
+function buildLineMap(raw: string): MetadataLineMap {
 	const lines = raw.split("\n");
-	const map: FrontmatterLineMap = {};
+	const map: MetadataLineMap = {};
 	const fencePattern = /^---\s*$/;
 
 	let insideFrontmatter = false;
@@ -75,7 +75,7 @@ export function parseMarkdownFile(
 	try {
 		const { data, content } = matter(raw);
 		const lineMap = buildLineMap(raw);
-		return { frontmatter: data, content, lineMap };
+		return { metadata: data, content, lineMap };
 	} catch (err) {
 		throw new ContentCollectionError(
 			`Failed to parse frontmatter: ${err instanceof Error ? err.message : String(err)}`,

@@ -33,7 +33,7 @@ function buildTypedIndex<T>(
 		typedIndex[slug] = {
 			filePath: entry.filePath,
 			slug: entry.slug,
-			frontmatter: entry.frontmatter as T,
+			metadata: entry.metadata as T,
 			content: entry.content,
 			computed: entry.computed,
 			lastModified: entry.lastModified,

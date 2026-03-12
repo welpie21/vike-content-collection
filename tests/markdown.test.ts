@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { parseMarkdownFile } from "../src/plugin/markdown";
 
 describe("parseMarkdownFile", () => {
-	it("parses simple frontmatter", () => {
+	it("parses simple metadata", () => {
 		const raw = `---
 title: "Hello World"
 author: "Jane"
@@ -12,7 +12,7 @@ Body content here.`;
 
 		const result = parseMarkdownFile(raw, "/test/post.md");
 
-		expect(result.frontmatter).toEqual({
+		expect(result.metadata).toEqual({
 			title: "Hello World",
 			author: "Jane",
 		});
@@ -57,18 +57,18 @@ Body.`;
 		expect(result.lineMap["tags.primary"]).toBe(7);
 	});
 
-	it("handles frontmatter with no body content", () => {
+	it("handles metadata with no body content", () => {
 		const raw = `---
 title: "Only frontmatter"
 ---`;
 
 		const result = parseMarkdownFile(raw, "/test/post.md");
 
-		expect(result.frontmatter).toEqual({ title: "Only frontmatter" });
+		expect(result.metadata).toEqual({ title: "Only frontmatter" });
 		expect(result.content.trim()).toBe("");
 	});
 
-	it("handles empty frontmatter", () => {
+	it("handles empty metadata", () => {
 		const raw = `---
 ---
 
@@ -76,7 +76,7 @@ Just body text.`;
 
 		const result = parseMarkdownFile(raw, "/test/post.md");
 
-		expect(result.frontmatter).toEqual({});
+		expect(result.metadata).toEqual({});
 		expect(Object.keys(result.lineMap)).toHaveLength(0);
 		expect(result.content.trim()).toBe("Just body text.");
 	});
@@ -92,7 +92,7 @@ Content.`;
 
 		const result = parseMarkdownFile(raw, "/test/post.md");
 
-		expect(result.frontmatter).toEqual({
+		expect(result.metadata).toEqual({
 			level1: { level2: { level3: "deep" } },
 		});
 		expect(result.lineMap.level1).toBe(2);
@@ -130,7 +130,7 @@ title: [invalid
 		}
 	});
 
-	it("preserves the full markdown body after frontmatter", () => {
+	it("preserves the full markdown body after metadata", () => {
 		const raw = `---
 title: "Test"
 ---
@@ -163,6 +163,6 @@ Content.`;
 		expect(result.lineMap.metadata).toBe(2);
 		expect(result.lineMap["metadata.name"]).toBe(3);
 		expect(result.lineMap.title).toBe(4);
-		expect(result.frontmatter.title).toBe("After nested");
+		expect(result.metadata.title).toBe("After nested");
 	});
 });

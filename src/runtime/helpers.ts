@@ -10,7 +10,7 @@ export interface PaginationResult<T> {
 }
 
 /**
- * Sort collection entries by a frontmatter key.
+ * Sort collection entries by a metadata key.
  * Returns a new array; the original is not mutated.
  */
 export function sortCollection<T>(
@@ -19,8 +19,8 @@ export function sortCollection<T>(
 	order: "asc" | "desc" = "asc",
 ): TypedCollectionEntry<T>[] {
 	return [...entries].sort((a, b) => {
-		const aVal = a.frontmatter[key];
-		const bVal = b.frontmatter[key];
+		const aVal = a.metadata[key];
+		const bVal = b.metadata[key];
 
 		if (aVal instanceof Date && bVal instanceof Date) {
 			return order === "asc"

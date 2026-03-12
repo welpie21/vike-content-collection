@@ -1,12 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { renderEntry, extractHeadings } from "../src/runtime/render";
+import { extractHeadings, renderEntry } from "../src/runtime/render";
 import type { TypedCollectionEntry } from "../src/types/index";
 
-function makeEntry(content: string): TypedCollectionEntry<Record<string, unknown>> {
+function makeEntry(
+	content: string,
+): TypedCollectionEntry<Record<string, unknown>> {
 	return {
 		filePath: "/pages/blog/test.md",
 		slug: "test",
-		frontmatter: {},
+		metadata: {},
 		content,
 		computed: {},
 		lastModified: undefined,
@@ -31,10 +33,26 @@ describe("renderEntry", () => {
 		const result = await renderEntry(entry);
 
 		expect(result.headings).toHaveLength(4);
-		expect(result.headings[0]).toEqual({ depth: 1, text: "Title", id: "title" });
-		expect(result.headings[1]).toEqual({ depth: 2, text: "Subtitle", id: "subtitle" });
-		expect(result.headings[2]).toEqual({ depth: 3, text: "Nested", id: "nested" });
-		expect(result.headings[3]).toEqual({ depth: 2, text: "Another", id: "another" });
+		expect(result.headings[0]).toEqual({
+			depth: 1,
+			text: "Title",
+			id: "title",
+		});
+		expect(result.headings[1]).toEqual({
+			depth: 2,
+			text: "Subtitle",
+			id: "subtitle",
+		});
+		expect(result.headings[2]).toEqual({
+			depth: 3,
+			text: "Nested",
+			id: "nested",
+		});
+		expect(result.headings[3]).toEqual({
+			depth: 2,
+			text: "Another",
+			id: "another",
+		});
 	});
 
 	it("adds slug IDs to headings in HTML", async () => {

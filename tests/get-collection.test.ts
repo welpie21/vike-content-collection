@@ -20,7 +20,7 @@ function makeCollection(
 		const entry = {
 			filePath: `${configDir}/${slug}.md`,
 			slug,
-			frontmatter: { title: `Post ${i}`, index: i },
+			metadata: { title: `Post ${i}`, index: i },
 			content: `Body of post ${i}`,
 			computed: {},
 			lastModified: undefined,
@@ -55,7 +55,7 @@ describe("getCollection", () => {
 
 		expect(entries).toHaveLength(2);
 		expect(entries[0].filePath).toBe("/pages/blog/post-0.md");
-		expect(entries[0].frontmatter).toEqual({ title: "Post 0", index: 0 });
+		expect(entries[0].metadata).toEqual({ title: "Post 0", index: 0 });
 		expect(entries[0].content).toBe("Body of post 0");
 	});
 
@@ -167,7 +167,7 @@ describe("getCollectionEntry", () => {
 
 		expect(entry).not.toBeArray();
 		expect(entry?.filePath).toBe("/pages/blog/post-1.md");
-		expect(entry?.frontmatter).toEqual({ title: "Post 1", index: 1 });
+		expect(entry?.metadata).toEqual({ title: "Post 1", index: 1 });
 		expect(entry?.content).toBe("Body of post 1");
 	});
 
@@ -192,7 +192,7 @@ describe("getCollectionEntry", () => {
 
 		const entries = getCollectionEntry(
 			"blog",
-			(e) => (e.frontmatter as Record<string, any>).index >= 3,
+			(e) => (e.metadata as Record<string, any>).index >= 3,
 		);
 
 		expect(entries).toBeArray();

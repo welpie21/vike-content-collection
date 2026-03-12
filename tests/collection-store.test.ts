@@ -17,7 +17,7 @@ function makeCollection(
 		const entry = {
 			filePath: `${configDir}/${slug}.md`,
 			slug,
-			frontmatter: { title: `Post ${i}`, index: i },
+			metadata: { title: `Post ${i}`, index: i },
 			content: `Content of post ${i}`,
 			computed: {},
 			lastModified: undefined,
@@ -143,7 +143,7 @@ describe("CollectionStore", () => {
 
 			const entry = serialized["/pages/blog"].entries[0];
 			expect(entry).toHaveProperty("filePath");
-			expect(entry).toHaveProperty("frontmatter");
+			expect(entry).toHaveProperty("metadata");
 			expect(entry).toHaveProperty("content");
 			expect(entry).not.toHaveProperty("lineMap");
 		});
@@ -154,7 +154,7 @@ describe("CollectionStore", () => {
 			const serialized = store.toSerializable();
 			const entry = serialized["/pages/blog"].entries[0];
 
-			expect(entry.frontmatter).toEqual({ title: "Post 0", index: 0 });
+			expect(entry.metadata).toEqual({ title: "Post 0", index: 0 });
 			expect(entry.filePath).toBe("/pages/blog/post-0.md");
 			expect(entry.content).toBe("Content of post 0");
 		});
@@ -177,7 +177,7 @@ describe("CollectionStore", () => {
 			const updated = {
 				filePath: "/pages/blog/post-0.md",
 				slug: "post-0",
-				frontmatter: { title: "Updated Post 0", index: 99 },
+				metadata: { title: "Updated Post 0", index: 99 },
 				content: "Updated content",
 				computed: {},
 				lastModified: undefined,
@@ -188,9 +188,9 @@ describe("CollectionStore", () => {
 
 			store.updateEntry("/pages/blog", updated);
 
-			const collection = store.get("/pages/blog")!;
-			expect(collection.entries).toHaveLength(2);
-			expect(collection.entries[0].frontmatter.title).toBe("Updated Post 0");
+			const collection = store.get("/pages/blog");
+			expect(collection?.entries).toHaveLength(2);
+			expect(collection?.entries[0].metadata.title).toBe("Updated Post 0");
 		});
 
 		it("adds a new entry when slug does not exist", () => {
@@ -198,7 +198,7 @@ describe("CollectionStore", () => {
 			const newEntry = {
 				filePath: "/pages/blog/new-post.md",
 				slug: "new-post",
-				frontmatter: { title: "New Post" },
+				metadata: { title: "New Post" },
 				content: "New content",
 				computed: {},
 				lastModified: undefined,
@@ -209,15 +209,15 @@ describe("CollectionStore", () => {
 
 			store.updateEntry("/pages/blog", newEntry);
 
-			const collection = store.get("/pages/blog")!;
-			expect(collection.entries).toHaveLength(2);
+			const collection = store.get("/pages/blog");
+			expect(collection?.entries).toHaveLength(2);
 		});
 
 		it("does nothing when configDir does not exist", () => {
 			const entry = {
 				filePath: "/pages/blog/post.md",
 				slug: "post",
-				frontmatter: {},
+				metadata: {},
 				content: "",
 				computed: {},
 				lastModified: undefined,
@@ -236,9 +236,12 @@ describe("CollectionStore", () => {
 
 			store.removeEntry("/pages/blog", "post-1");
 
-			const collection = store.get("/pages/blog")!;
-			expect(collection.entries).toHaveLength(2);
-			expect(collection.entries.find((e) => e.slug === "post-1")).toBeUndefined();
+			const collection = store.get("/pages/blog");
+
+			expect(collection?.entries).toHaveLength(2);
+			expect(
+				collection?.entries.find((e) => e.slug === "post-1"),
+			).toBeUndefined();
 		});
 
 		it("does nothing for non-existent slug", () => {
@@ -246,7 +249,7 @@ describe("CollectionStore", () => {
 
 			store.removeEntry("/pages/blog", "nonexistent");
 
-			expect(store.get("/pages/blog")!.entries).toHaveLength(2);
+			expect(store.get("/pages/blog")?.entries).toHaveLength(2);
 		});
 
 		it("does nothing for non-existent configDir", () => {

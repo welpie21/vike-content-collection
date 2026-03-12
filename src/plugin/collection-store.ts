@@ -1,13 +1,13 @@
-import type { FrontmatterLineMap } from "./markdown.js";
+import type { MetadataLineMap } from "./markdown.js";
 
 export interface CollectionEntry {
 	/** Absolute path to the source file */
 	filePath: string;
 	/** Unique slug of the entry within the collection */
 	slug: string;
-	/** Validated frontmatter data */
-	frontmatter: Record<string, unknown>;
-	/** Raw markdown body (without frontmatter). Empty string for data entries. */
+	/** Validated metadata */
+	metadata: Record<string, unknown>;
+	/** Raw markdown body. Empty string for data entries. */
 	content: string;
 	/** Values produced by computed field functions */
 	computed: Record<string, unknown>;
@@ -15,8 +15,8 @@ export interface CollectionEntry {
 	lastModified: Date | undefined;
 	/** Whether the entry is a draft */
 	_isDraft: boolean;
-	/** Maps frontmatter key paths to their line numbers for error reporting */
-	lineMap: FrontmatterLineMap;
+	/** Maps metadata key paths to their line numbers for error reporting */
+	lineMap: MetadataLineMap;
 	/** Index of resolved entries by slug */
 	index: Record<string, CollectionEntry>;
 }
@@ -111,7 +111,7 @@ export class CollectionStore {
 			entries: {
 				filePath: string;
 				slug: string;
-				frontmatter: Record<string, unknown>;
+				metadata: Record<string, unknown>;
 				content: string;
 				computed: Record<string, unknown>;
 				lastModified: string | undefined;
@@ -126,7 +126,7 @@ export class CollectionStore {
 				entries: {
 					filePath: string;
 					slug: string;
-					frontmatter: Record<string, unknown>;
+					metadata: Record<string, unknown>;
 					content: string;
 					computed: Record<string, unknown>;
 					lastModified: string | undefined;
@@ -140,7 +140,7 @@ export class CollectionStore {
 				entries: collection.entries.map((e) => ({
 					filePath: e.filePath,
 					slug: e.slug,
-					frontmatter: e.frontmatter,
+					metadata: e.metadata,
 					content: e.content,
 					computed: e.computed,
 					lastModified: e.lastModified?.toISOString(),

@@ -2,7 +2,7 @@
 
 A content collection plugin for [Vike](https://vike.dev/) + [Vite](https://vite.dev/) that lets you define typed, schema-validated content collections using [zod](https://zod.dev/).
 
-Define a zod schema in a `+Content.ts` file, and the plugin will parse your markdown frontmatter, validate it against your schema, and make the resulting data available at build time and during development -- both through Vike's `pageContext` and as a virtual module consumable by other Vite plugins. Supports markdown content collections and data-only collections (JSON, YAML, TOML), with built-in rendering, computed fields, draft mode, and more.
+Define a zod schema in a `+Content.ts` file, and the plugin will parse your markdown metadata (YAML frontmatter), validate it against your schema, and make the resulting data available at build time and during development -- both through Vike's `pageContext` and as a virtual module consumable by other Vite plugins. Supports markdown content collections and data-only collections (JSON, YAML, TOML), with built-in rendering, computed fields, draft mode, and more.
 
 ## Installation
 
@@ -46,7 +46,7 @@ export default {
 
 ### Defining a collection
 
-Create a `+Content.ts` file in any page directory. The simplest form exports `Content` as a zod schema that describes the frontmatter shape:
+Create a `+Content.ts` file in any page directory. The simplest form exports `Content` as a zod schema that describes the metadata shape:
 
 ```ts
 // pages/blog/+Content.ts
@@ -82,8 +82,8 @@ export const Content = {
   },
 
   // Custom slug derivation (see Custom Slugs)
-  slug: ({ frontmatter, defaultSlug }) =>
-    frontmatter.permalink ?? defaultSlug,
+  slug: ({ metadata, defaultSlug }) =>
+    metadata.permalink ?? defaultSlug,
 }
 ```
 
@@ -105,7 +105,7 @@ export default z.object({ ... })
 
 ### Writing content
 
-Place markdown files in the same directory as `+Content.ts` (or subdirectories), or use the `contentRoot` option to keep them in a separate directory. Frontmatter must match the schema:
+Place markdown files in the same directory as `+Content.ts` (or subdirectories), or use the `contentRoot` option to keep them in a separate directory. The YAML frontmatter must match the schema:
 
 ```md
 ---
@@ -139,7 +139,7 @@ export const Content = {
 }
 ```
 
-Each file in the collection directory becomes one entry. The entire file contents are validated against the schema. The `content` field on data entries is an empty string.
+Each file in the collection directory becomes one entry. Each file is validated against the schema. The `content` field on data entries is an empty string.
 
 ### Accessing collection data
 
@@ -153,7 +153,7 @@ import { getCollection } from 'vike-content-collection'
 
 export function data() {
   const posts = getCollection('blog')
-  // posts is fully typed from the zod schema in +Content.ts
+  // posts is fully typed: { filePath, slug, metadata, content, computed, ... }[]
   return { posts }
 }
 ```
@@ -162,8 +162,8 @@ Each entry includes:
 
 - `filePath` -- absolute path to the source file.
 - `slug` -- unique identifier derived from the filename (or custom slug function).
-- `frontmatter` -- validated and typed frontmatter data.
-- `content` -- raw markdown body (without frontmatter). Empty string for data entries.
+- `metadata` -- validated and typed metadata.
+- `content` -- raw markdown body. Empty string for data entries.
 - `computed` -- values produced by computed field functions (empty object if none defined).
 - `lastModified` -- git-based last modification date (`Date | undefined`, opt-in).
 - `_isDraft` -- whether the entry is marked as a draft.
@@ -199,7 +199,7 @@ const tutorials = getCollectionEntry('blog', /^tutorial-/)
 **By predicate** -- pass a function to filter entries. Returns an array of matching entries:
 
 ```ts
-const published = getCollectionEntry('blog', (entry) => !entry._isDraft)
+const published = getCollectionEntry('blog', (e) => !e._isDraft)
 // TypedCollectionEntry[]
 ```
 
@@ -209,7 +209,7 @@ const published = getCollectionEntry('blog', (entry) => !entry._isDraft)
 const selected = getCollectionEntry('blog', [
   'intro',
   /^tutorial-/,
-  (entry) => entry.frontmatter.featured === true,
+  (entry) => entry.metadata.featured === true,
 ])
 // TypedCollectionEntry[]
 ```
@@ -260,7 +260,7 @@ This parses the markdown AST just enough to find heading nodes, which is faster 
 
 ### Computed fields
 
-Define functions in the extended config that derive additional data from each entry. Computed fields run after frontmatter validation and are available on the `computed` property:
+Define functions in the extended config that derive additional data from each entry. Computed fields run after metadata validation and are available on the `computed` property:
 
 ```ts
 // pages/blog/+Content.ts
@@ -284,7 +284,7 @@ posts.forEach(post => {
 })
 ```
 
-Each computed function receives `{ frontmatter, content, filePath, slug }`.
+Each computed function receives `{ metadata, content, filePath, slug }`.
 
 ### Collection references
 
@@ -313,16 +313,16 @@ export const Content = {
     title: z.string(),
     permalink: z.string().optional()
   }),
-  slug: ({ frontmatter, filePath, defaultSlug }) =>
-    frontmatter.permalink ?? defaultSlug,
+  slug: ({ metadata, filePath, defaultSlug }) =>
+    metadata.permalink ?? defaultSlug,
 }
 ```
 
-The slug function receives `{ frontmatter, filePath, defaultSlug }` where `defaultSlug` is the filename-based slug that would have been used.
+The slug function receives `{ metadata, filePath, defaultSlug }` where `defaultSlug` is the filename-based slug that would have been used.
 
 ### Draft mode
 
-Entries with a truthy `draft` field in their frontmatter are automatically filtered out in production builds while remaining visible during development. No schema changes are required -- the plugin checks the frontmatter field directly after validation.
+Entries with a truthy `draft` field in their metadata are automatically filtered out in production builds while remaining visible during development. No schema changes are required -- the plugin checks the metadata field directly after validation.
 
 In development, draft entries are included with `_isDraft: true` so you can style or badge them differently. In production (`vite build`), drafts are excluded entirely.
 
@@ -331,7 +331,7 @@ Configure the draft field name or override the include behavior via plugin optio
 ```ts
 vikeContentCollection({
   drafts: {
-    field: 'draft',         // frontmatter field to check (default: "draft")
+    field: 'draft',         // metadata field to check (default: "draft")
     includeDrafts: false,   // force exclude even in dev (default: true in dev, false in prod)
   }
 })
@@ -343,7 +343,7 @@ The plugin exports helper functions for common collection operations:
 
 #### `sortCollection()`
 
-Sort entries by a frontmatter key. Returns a new array without mutating the original:
+Sort entries by a metadata key. Returns a new array without mutating the original:
 
 ```ts
 import { getCollection, sortCollection } from 'vike-content-collection'
@@ -419,7 +419,7 @@ Other Vite plugins or application code can also import collection data through t
 import { collections } from 'virtual:content-collection'
 ```
 
-The `collections` object is a record keyed by the directory path of each `+Content.ts`, with each value containing a `type` (`"content"` or `"data"`) and an `entries` array of `{ filePath, slug, frontmatter, content, computed, lastModified, _isDraft }`.
+The `collections` object is a record keyed by the directory path of each `+Content.ts`, with each value containing a `type` (`"content"` or `"data"`) and an `entries` array of `{ filePath, slug, metadata, content, computed, lastModified, _isDraft }`.
 
 ### Via Vike's pageContext
 
@@ -427,10 +427,10 @@ Because `Content` is registered as a Vike setting through the `meta` system, the
 
 ## Schema Validation Errors
 
-When a file's frontmatter or data fails validation, the build halts with a detailed error that includes:
+When a file's metadata fails validation, the build halts with a detailed error that includes:
 
 - The file path of the offending file
-- The line number within the frontmatter where the issue was found (for markdown files)
+- The line number within the metadata where the issue was found (for markdown files)
 - The zod error path (e.g. `metadata.name`)
 - The validation message
 
@@ -452,7 +452,7 @@ vikeContentCollection({
   contentDir: 'pages',        // where +Content.ts files are scanned (default: "pages")
   contentRoot: 'content',     // where content files live (default: same as contentDir)
   drafts: {
-    field: 'draft',           // frontmatter field for draft status (default: "draft")
+    field: 'draft',           // metadata field for draft status (default: "draft")
     includeDrafts: true,      // force include/exclude drafts (default: true in dev, false in prod)
   },
   lastModified: true,         // populate lastModified from git (default: false)
@@ -463,15 +463,15 @@ vikeContentCollection({
 | ----------------------- | --------- | -------------------- | ---------------------------------------------------------------------------- |
 | `contentDir`            | `string`  | `"pages"`            | Root directory to scan for `+Content.ts` config files.                       |
 | `contentRoot`           | `string`  | same as `contentDir` | Root directory where content/data files live.                                |
-| `drafts.field`          | `string`  | `"draft"`            | Frontmatter field name to check for draft status.                            |
+| `drafts.field`          | `string`  | `"draft"`            | Metadata field name to check for draft status.                            |
 | `drafts.includeDrafts`  | `boolean` | `true` in dev, `false` in prod | Force include/exclude draft entries.                          |
 | `lastModified`          | `boolean` | `false`              | Populate `lastModified` from git history on each entry.                      |
 
 ## How It Works
 
 1. **Scan** -- On `buildStart`, the plugin recursively searches `contentDir` for `+Content.ts` files. Each must export a zod schema (directly or via `{ schema: ... }`).
-2. **Parse** -- For content collections, it collects `.md` files and parses YAML frontmatter using [gray-matter](https://github.com/jonschlinkert/gray-matter). For data collections, it collects `.json`, `.yaml`/`.yml`, and `.toml` files.
-3. **Validate** -- Each parsed frontmatter/data object is validated against the zod schema. On failure, zod error paths are mapped back to specific line numbers in the source file.
+2. **Parse** -- For content collections, it collects `.md` files and parses YAML frontmatter into metadata using [gray-matter](https://github.com/jonschlinkert/gray-matter). For data collections, it collects `.json`, `.yaml`/`.yml`, and `.toml` files.
+3. **Validate** -- Each parsed metadata object is validated against the zod schema. On failure, zod error paths are mapped back to specific line numbers in the source file.
 4. **Compute** -- Computed field functions run on each validated entry, producing derived data.
 5. **Filter** -- Draft entries are excluded in production builds.
 6. **Store** -- Validated entries are held in an in-memory store, keyed by collection name.
@@ -515,7 +515,7 @@ import type {
   CollectionEntryFilterInput,
   CollectionEntryPredicate,
   ParsedMarkdown,
-  FrontmatterLineMap,
+	MetadataLineMap,
   ValidationIssue,
   RenderResult,
   RenderOptions,
@@ -527,20 +527,20 @@ import type {
 | Type                             | Description                                                                        |
 | -------------------------------- | ---------------------------------------------------------------------------------- |
 | `ContentCollectionPluginOptions` | Options accepted by the `vikeContentCollection()` factory.                         |
-| `ContentCollectionConfig`        | Shape of the `+Content.ts` export (`{ Content: ZodSchema }`).                      |
+| `ContentCollectionConfig`        | Shape of the `+Content.ts` export (`{ Content: ZodSchema }`).                     |
 | `ContentCollectionDefinition`    | Extended config object with `schema`, `computed`, `slug`, and `type` fields.       |
 | `ResolvedContentConfig`          | Normalized config after resolving a plain schema or definition object.             |
-| `ComputedFieldInput`             | Input passed to computed field functions (`frontmatter`, `content`, `filePath`, `slug`). |
-| `SlugInput`                      | Input passed to custom slug functions (`frontmatter`, `filePath`, `defaultSlug`).  |
-| `CollectionEntry`                | A single validated entry (slug, frontmatter, content, computed, file path, index). |
+| `ComputedFieldInput`             | Input passed to computed field functions (`metadata`, `content`, `filePath`, `slug`). |
+| `SlugInput`                      | Input passed to custom slug functions (`metadata`, `filePath`, `defaultSlug`).     |
+| `CollectionEntry`                | A single validated entry (slug, metadata, content, computed, file path, index).    |
 | `Collection`                     | A full collection (name, type, config path, directory, array of entries).          |
-| `CollectionMap`                  | Augmentable interface mapping collection names to frontmatter types.               |
-| `TypedCollectionEntry<T>`        | A collection entry with typed frontmatter and all metadata fields.                 |
+| `CollectionMap`                  | Augmentable interface mapping collection names to metadata types.                  |
+| `TypedCollectionEntry<T>`        | A collection entry with typed metadata and all entry fields.                       |
 | `CollectionEntryPredicate<T>`    | Predicate function used to filter collection entries.                              |
 | `CollectionEntryFilter<T>`       | A single filter criterion: `string`, `RegExp`, or `CollectionEntryPredicate<T>`.   |
 | `CollectionEntryFilterInput<T>`  | One or more filter criteria (single or array), accepted by `getCollectionEntry()`. |
-| `ParsedMarkdown`                 | Result of parsing a markdown file (frontmatter, content, line map).                |
-| `FrontmatterLineMap`             | Maps frontmatter key paths to their 1-based line numbers.                          |
+| `ParsedMarkdown`                 | Result of parsing a markdown file (metadata, content, line map).                   |
+| `MetadataLineMap`                | Maps metadata key paths to their 1-based line numbers.                             |
 | `ValidationIssue`                | A single validation error with file, line, path, and message.                      |
 | `RenderResult`                   | Result of `renderEntry()`: `{ html: string, headings: Heading[] }`.               |
 | `RenderOptions`                  | Options for `renderEntry()`: custom `remarkPlugins` and `rehypePlugins`.           |

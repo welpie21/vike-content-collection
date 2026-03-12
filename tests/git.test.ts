@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { getLastModified } from "../src/plugin/git";
 import { join } from "node:path";
+import { getLastModified } from "../src/plugin/git";
 
 describe("getLastModified", () => {
 	it("returns a Date for a tracked file", () => {
@@ -8,7 +8,7 @@ describe("getLastModified", () => {
 		const result = getLastModified(filePath);
 
 		expect(result).toBeInstanceOf(Date);
-		expect(result!.getTime()).not.toBeNaN();
+		expect(result?.getTime()).not.toBeNaN();
 	});
 
 	it("returns undefined for a non-existent file", () => {
@@ -18,7 +18,13 @@ describe("getLastModified", () => {
 	});
 
 	it("returns undefined for an untracked file", () => {
-		const tmpFile = join(import.meta.dir, "..", "node_modules", ".cache", "untracked-test-file.tmp");
+		const tmpFile = join(
+			import.meta.dir,
+			"..",
+			"node_modules",
+			".cache",
+			"untracked-test-file.tmp",
+		);
 		const result = getLastModified(tmpFile);
 
 		expect(result).toBeUndefined();
