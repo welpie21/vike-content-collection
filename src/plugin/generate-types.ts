@@ -50,7 +50,8 @@ export function buildDeclarationContent(
 			HEADER +
 			`declare module 'vike-content-collection' {\n` +
 			`  interface CollectionMap {}\n` +
-			`}\n`
+			`}\n\n` +
+			`export { };\n`
 		);
 	}
 
