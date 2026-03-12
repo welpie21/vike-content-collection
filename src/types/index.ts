@@ -22,6 +22,24 @@ export interface CollectionMap {}
 
 export interface TypedCollectionEntry<T> {
 	filePath: string;
+	slug: string;
 	frontmatter: T;
 	content: string;
+	index: Record<string, TypedCollectionEntry<T>>;
 }
+
+/** Predicate function used to filter collection entries. */
+export type CollectionEntryPredicate<T> = (
+	entry: TypedCollectionEntry<T>,
+) => boolean;
+
+/** A single filter criterion: exact slug, regex pattern, or predicate. */
+export type CollectionEntryFilter<T> =
+	| string
+	| RegExp
+	| CollectionEntryPredicate<T>;
+
+/** One or more filter criteria. An array matches entries against each filter with OR semantics. */
+export type CollectionEntryFilterInput<T> =
+	| CollectionEntryFilter<T>
+	| CollectionEntryFilter<T>[];

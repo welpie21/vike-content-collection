@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { createJiti } from "jiti";
 import type { ZodSchema } from "zod";
 import { type CollectionEntry, getGlobalStore } from "./collection-store.js";
@@ -122,6 +122,7 @@ export function vikeContentCollectionPlugin(
 		const mdFiles = findMarkdownFiles(mdDir);
 
 		const entries: CollectionEntry[] = [];
+		const index: Record<string, CollectionEntry> = {};
 
 		for (const mdFile of mdFiles) {
 			const raw = readFileSync(mdFile, "utf-8");
@@ -132,12 +133,17 @@ export function vikeContentCollectionPlugin(
 				mdFile,
 				parsed.lineMap,
 			);
-			entries.push({
+			const slug = basename(mdFile, ".md");
+			const entry: CollectionEntry = {
 				filePath: mdFile,
+				slug,
 				frontmatter: validatedFrontmatter,
 				content: parsed.content,
 				lineMap: parsed.lineMap,
-			});
+				index,
+			};
+			entries.push(entry);
+			index[slug] = entry;
 		}
 
 		store.set(configDir, { name, configDir, configPath, markdownDir: mdDir, entries });

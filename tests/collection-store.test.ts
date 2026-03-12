@@ -11,12 +11,20 @@ function makeCollection(
 	configDir: string,
 	entryCount: number = 1,
 ): Collection {
-	const entries = Array.from({ length: entryCount }, (_, i) => ({
-		filePath: `${configDir}/post-${i}.md`,
-		frontmatter: { title: `Post ${i}`, index: i },
-		content: `Content of post ${i}`,
-		lineMap: { title: 2 },
-	}));
+	const index: Record<string, Collection["entries"][number]> = {};
+	const entries = Array.from({ length: entryCount }, (_, i) => {
+		const slug = `post-${i}`;
+		const entry = {
+			filePath: `${configDir}/${slug}.md`,
+			slug,
+			frontmatter: { title: `Post ${i}`, index: i },
+			content: `Content of post ${i}`,
+			lineMap: { title: 2 },
+			index,
+		};
+		index[slug] = entry;
+		return entry;
+	});
 
 	return {
 		name,

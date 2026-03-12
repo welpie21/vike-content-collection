@@ -1,6 +1,11 @@
-import { basename } from "node:path";
+import type { CollectionEntry } from "../plugin/collection-store.js";
 import { getGlobalStore } from "../plugin/collection-store.js";
-import type { CollectionMap, TypedCollectionEntry } from "../types/index.js";
+import type {
+	CollectionEntryFilter,
+	CollectionEntryFilterInput,
+	CollectionMap,
+	TypedCollectionEntry,
+} from "../types/index.js";
 
 function resolveCollection(name: string) {
 	const store = getGlobalStore();
@@ -20,16 +25,28 @@ function resolveCollection(name: string) {
 	return collection;
 }
 
-function toTypedEntry<T>(entry: {
-	filePath: string;
-	frontmatter: Record<string, unknown>;
-	content: string;
-}): TypedCollectionEntry<T> {
-	return {
-		filePath: entry.filePath,
-		frontmatter: entry.frontmatter as T,
-		content: entry.content,
-	};
+function buildTypedIndex<T>(
+	index: Record<string, CollectionEntry>,
+): Record<string, TypedCollectionEntry<T>> {
+	const typedIndex: Record<string, TypedCollectionEntry<T>> = {};
+	for (const [slug, entry] of Object.entries(index)) {
+		typedIndex[slug] = {
+			filePath: entry.filePath,
+			slug: entry.slug,
+			frontmatter: entry.frontmatter as T,
+			content: entry.content,
+			index: typedIndex,
+		};
+	}
+	return typedIndex;
+}
+
+function toTypedEntries<T>(
+	entries: CollectionEntry[],
+): TypedCollectionEntry<T>[] {
+	if (entries.length === 0) return [];
+	const typedIndex = buildTypedIndex<T>(entries[0].index);
+	return entries.map((e) => typedIndex[e.slug]);
 }
 
 /**
@@ -51,63 +68,92 @@ export function getCollection(
 	name: string,
 ): TypedCollectionEntry<Record<string, unknown>>[] {
 	const collection = resolveCollection(name);
-	return collection.entries.map((e) => toTypedEntry(e));
+	return toTypedEntries(collection.entries);
+}
+
+function matchesFilter<T>(
+	entry: TypedCollectionEntry<T>,
+	filter: CollectionEntryFilter<T>,
+): boolean {
+	if (typeof filter === "string") {
+		return entry.slug === filter;
+	}
+	if (filter instanceof RegExp) {
+		return filter.test(entry.slug);
+	}
+	return filter(entry);
 }
 
 /**
- * Retrieve a single entry or a filtered subset from a content collection.
+ * Retrieve entries from a content collection.
  *
  * @param name - The collection name (directory path relative to content root).
- * @param filter - Either a slug string (filename without `.md`) to find a
- *   single entry, or a predicate function to filter multiple entries.
- *
- * When `filter` is a string, returns one entry or throws if not found.
- * When `filter` is a function, returns an array of matching entries.
+ * @param filter - One of:
+ *   - A `string` slug to look up a single entry (returns the entry or `undefined`).
+ *   - A `RegExp` to match slugs (returns an array of matching entries).
+ *   - A predicate function to filter entries (returns an array of matching entries).
+ *   - An array of the above (OR semantics, returns an array of matching entries).
  */
 export function getCollectionEntry<K extends keyof CollectionMap>(
 	name: K,
 	filter: string,
-): TypedCollectionEntry<CollectionMap[K]>;
+): TypedCollectionEntry<CollectionMap[K]> | undefined;
 export function getCollectionEntry<K extends keyof CollectionMap>(
 	name: K,
-	filter: (entry: TypedCollectionEntry<CollectionMap[K]>) => boolean,
+	filter: RegExp,
+): TypedCollectionEntry<CollectionMap[K]>[];
+export function getCollectionEntry<K extends keyof CollectionMap>(
+	name: K,
+	filter: CollectionEntryFilter<CollectionMap[K]>[],
+): TypedCollectionEntry<CollectionMap[K]>[];
+export function getCollectionEntry<K extends keyof CollectionMap>(
+	name: K,
+	filter: Exclude<CollectionEntryFilterInput<CollectionMap[K]>, string>,
 ): TypedCollectionEntry<CollectionMap[K]>[];
 export function getCollectionEntry(
 	name: string,
 	filter: string,
-): TypedCollectionEntry<Record<string, unknown>>;
+): TypedCollectionEntry<Record<string, unknown>> | undefined;
 export function getCollectionEntry(
 	name: string,
-	filter: (
-		entry: TypedCollectionEntry<Record<string, unknown>>,
-	) => boolean,
+	filter: RegExp,
 ): TypedCollectionEntry<Record<string, unknown>>[];
 export function getCollectionEntry(
 	name: string,
-	filter:
-		| string
-		| ((entry: TypedCollectionEntry<Record<string, unknown>>) => boolean),
+	filter: CollectionEntryFilter<Record<string, unknown>>[],
+): TypedCollectionEntry<Record<string, unknown>>[];
+export function getCollectionEntry(
+	name: string,
+	filter: Exclude<
+		CollectionEntryFilterInput<Record<string, unknown>>,
+		string
+	>,
+): TypedCollectionEntry<Record<string, unknown>>[];
+export function getCollectionEntry(
+	name: string,
+	filter: CollectionEntryFilterInput<Record<string, unknown>>,
 ):
 	| TypedCollectionEntry<Record<string, unknown>>
-	| TypedCollectionEntry<Record<string, unknown>>[] {
+	| TypedCollectionEntry<Record<string, unknown>>[]
+	| undefined {
 	const collection = resolveCollection(name);
-	const entries = collection.entries.map((e) =>
-		toTypedEntry<Record<string, unknown>>(e),
+	const entries = toTypedEntries<Record<string, unknown>>(
+		collection.entries,
 	);
 
 	if (typeof filter === "string") {
-		const slug = filter;
-		const entry = entries.find(
-			(e) => basename(e.filePath, ".md") === slug,
+		return entries.find((e) => e.slug === filter);
+	}
+
+	if (Array.isArray(filter)) {
+		const filters = filter;
+		return entries.filter((e) =>
+			filters.some((f) => matchesFilter(e, f)),
 		);
+	}
 
-		if (!entry) {
-			throw new Error(
-				`[vike-content-collection] Entry "${slug}" not found in collection "${name}".`,
-			);
-		}
-
-		return entry;
+	if (filter instanceof RegExp) {
+		return entries.filter((e) => filter.test(e.slug));
 	}
 
 	return entries.filter(filter);

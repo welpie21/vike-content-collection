@@ -14,12 +14,20 @@ function makeCollection(
 	configDir: string,
 	entryCount: number = 1,
 ): Collection {
-	const entries = Array.from({ length: entryCount }, (_, i) => ({
-		filePath: `${configDir}/post-${i}.md`,
-		frontmatter: { title: `Post ${i}`, index: i },
-		content: `Body of post ${i}`,
-		lineMap: { title: 2 },
-	}));
+	const index: Record<string, Collection["entries"][number]> = {};
+	const entries = Array.from({ length: entryCount }, (_, i) => {
+		const slug = `post-${i}`;
+		const entry = {
+			filePath: `${configDir}/${slug}.md`,
+			slug,
+			frontmatter: { title: `Post ${i}`, index: i },
+			content: `Body of post ${i}`,
+			lineMap: { title: 2 },
+			index,
+		};
+		index[slug] = entry;
+		return entry;
+	});
 
 	return {
 		name,
@@ -125,13 +133,13 @@ describe("getCollectionEntry", () => {
 		expect(entry.content).toBe("Body of post 1");
 	});
 
-	it("throws when slug is not found", () => {
+	it("returns undefined when slug is not found", () => {
 		const store = getGlobalStore();
 		store.set("/pages/blog", makeCollection("blog", "/pages/blog", 1));
 
-		expect(() => getCollectionEntry("blog", "nonexistent")).toThrow(
-			/Entry "nonexistent" not found in collection "blog"/,
-		);
+		const entry = getCollectionEntry("blog", "nonexistent");
+
+		expect(entry).toBeUndefined();
 	});
 
 	it("throws for unknown collection", () => {

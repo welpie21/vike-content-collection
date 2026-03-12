@@ -9,6 +9,9 @@ export {
 export type {
 	Collection,
 	CollectionEntry,
+	CollectionEntryFilter,
+	CollectionEntryFilterInput,
+	CollectionEntryPredicate,
 	CollectionMap,
 	ContentCollectionConfig,
 	ContentCollectionPluginOptions,

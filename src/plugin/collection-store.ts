@@ -3,12 +3,16 @@ import type { FrontmatterLineMap } from "./markdown.js";
 export interface CollectionEntry {
 	/** Absolute path to the markdown file */
 	filePath: string;
+	/** Unique slug of the entry within the collection (filename without extension) */
+	slug: string;
 	/** Validated frontmatter data */
 	frontmatter: Record<string, unknown>;
 	/** Raw markdown body (without frontmatter) */
 	content: string;
 	/** Maps frontmatter key paths to their line numbers for error reporting */
 	lineMap: FrontmatterLineMap;
+	/** Index of resolved entries by slug */
+	index: Record<string, CollectionEntry>;
 }
 
 export interface Collection {
@@ -68,6 +72,7 @@ export class CollectionStore {
 		{
 			entries: {
 				filePath: string;
+				slug: string;
 				frontmatter: Record<string, unknown>;
 				content: string;
 			}[];
@@ -78,6 +83,7 @@ export class CollectionStore {
 			{
 				entries: {
 					filePath: string;
+					slug: string;
 					frontmatter: Record<string, unknown>;
 					content: string;
 				}[];
@@ -87,6 +93,7 @@ export class CollectionStore {
 			result[dir] = {
 				entries: collection.entries.map((e) => ({
 					filePath: e.filePath,
+					slug: e.slug,
 					frontmatter: e.frontmatter,
 					content: e.content,
 				})),
