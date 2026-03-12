@@ -25,13 +25,19 @@ export function generateDeclarationFile(
 	writeFileSync(outFile, content);
 }
 
-const RESOLVE_SCHEMA_HELPER = `type _ResolveSchema<C> = C extends { schema: infer S } ? S : C\n`;
-
-const RESOLVE_CONTENT_HELPER =
+const TYPE_HELPERS =
+	`type _ResolveSchema<C> = C extends { schema: infer S } ? S : C\n` +
 	`type _ResolveContent<M> = M extends { Content: infer C } ? _ResolveSchema<C>\n` +
 	`  : M extends { default: { Content: infer C } } ? _ResolveSchema<C>\n` +
 	`  : M extends { default: infer D } ? _ResolveSchema<D>\n` +
-	`  : never\n`;
+	`  : never\n` +
+	`type _ExtractComputed<C> = C extends { computed: infer Comp }\n` +
+	`  ? { [K in keyof Comp]: Comp[K] extends (...args: any[]) => infer R ? R : never }\n` +
+	`  : Record<string, never>\n` +
+	`type _ResolveComputed<M> = M extends { Content: infer C } ? _ExtractComputed<C>\n` +
+	`  : M extends { default: { Content: infer C } } ? _ExtractComputed<C>\n` +
+	`  : M extends { default: infer D } ? _ExtractComputed<D>\n` +
+	`  : Record<string, never>\n`;
 
 export function buildDeclarationContent(
 	store: CollectionStore,
@@ -60,7 +66,10 @@ export function buildDeclarationContent(
 
 		imports.push(`import type * as _${safeName} from '${configRelative}'`);
 		mapEntries.push(
-			`    '${collection.name}': z.infer<_ResolveContent<typeof _${safeName}>>`,
+			`    '${collection.name}': {\n` +
+				`      metadata: z.infer<_ResolveContent<typeof _${safeName}>>\n` +
+				`      computed: _ResolveComputed<typeof _${safeName}>\n` +
+				`    }`,
 		);
 	}
 
@@ -69,8 +78,7 @@ export function buildDeclarationContent(
 		`import type { z } from 'zod'\n` +
 		imports.join("\n") +
 		"\n\n" +
-		RESOLVE_SCHEMA_HELPER +
-		RESOLVE_CONTENT_HELPER +
+		TYPE_HELPERS +
 		"\n" +
 		`declare module 'vike-content-collection' {\n` +
 		`  interface CollectionMap {\n` +

@@ -55,29 +55,40 @@ export interface ResolvedContentConfig {
 // biome-ignore lint/suspicious/noEmptyInterface: intentional empty interface for declaration merging
 export interface CollectionMap {}
 
-export interface TypedCollectionEntry<T> {
+export interface TypedCollectionEntry<
+	TMetadata,
+	TComputed = Record<string, unknown>,
+> {
 	filePath: string;
 	slug: string;
-	metadata: T;
+	metadata: TMetadata;
 	content: string;
-	computed: Record<string, unknown>;
+	computed: TComputed;
 	lastModified: Date | undefined;
 	_isDraft: boolean;
-	index: Record<string, TypedCollectionEntry<T>>;
+	index: Record<string, TypedCollectionEntry<TMetadata, TComputed>>;
 }
 
+/** Extract the metadata type from a CollectionMap entry (supports both old and new format). */
+export type InferMetadata<T> = T extends { metadata: infer M } ? M : T;
+
+/** Extract the computed type from a CollectionMap entry. */
+export type InferComputed<T> = T extends { computed: infer C }
+	? C
+	: Record<string, unknown>;
+
 /** Predicate function used to filter collection entries. */
-export type CollectionEntryPredicate<T> = (
-	entry: TypedCollectionEntry<T>,
+export type CollectionEntryPredicate<T, C = Record<string, unknown>> = (
+	entry: TypedCollectionEntry<T, C>,
 ) => boolean;
 
 /** A single filter criterion: exact slug, regex pattern, or predicate. */
-export type CollectionEntryFilter<T> =
+export type CollectionEntryFilter<T, C = Record<string, unknown>> =
 	| string
 	| RegExp
-	| CollectionEntryPredicate<T>;
+	| CollectionEntryPredicate<T, C>;
 
 /** One or more filter criteria. An array matches entries against each filter with OR semantics. */
-export type CollectionEntryFilterInput<T> =
-	| CollectionEntryFilter<T>
-	| CollectionEntryFilter<T>[];
+export type CollectionEntryFilterInput<T, C = Record<string, unknown>> =
+	| CollectionEntryFilter<T, C>
+	| CollectionEntryFilter<T, C>[];

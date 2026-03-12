@@ -22,6 +22,8 @@ export type {
 	ContentCollectionConfig,
 	ContentCollectionDefinition,
 	ContentCollectionPluginOptions,
+	InferComputed,
+	InferMetadata,
 	MetadataLineMap,
 	ParsedMarkdown,
 	ResolvedContentConfig,

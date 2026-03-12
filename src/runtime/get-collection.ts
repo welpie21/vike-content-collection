@@ -4,6 +4,8 @@ import type {
 	CollectionEntryFilter,
 	CollectionEntryFilterInput,
 	CollectionMap,
+	InferComputed,
+	InferMetadata,
 	TypedCollectionEntry,
 } from "../types/index.js";
 
@@ -25,17 +27,17 @@ function resolveCollection(name: string) {
 	return collection;
 }
 
-function buildTypedIndex<T>(
+function buildTypedIndex<TM, TC>(
 	index: Record<string, CollectionEntry>,
-): Record<string, TypedCollectionEntry<T>> {
-	const typedIndex: Record<string, TypedCollectionEntry<T>> = {};
+): Record<string, TypedCollectionEntry<TM, TC>> {
+	const typedIndex: Record<string, TypedCollectionEntry<TM, TC>> = {};
 	for (const [slug, entry] of Object.entries(index)) {
 		typedIndex[slug] = {
 			filePath: entry.filePath,
 			slug: entry.slug,
-			metadata: entry.metadata as T,
+			metadata: entry.metadata as TM,
 			content: entry.content,
-			computed: entry.computed,
+			computed: entry.computed as TC,
 			lastModified: entry.lastModified,
 			_isDraft: entry._isDraft,
 			index: typedIndex,
@@ -44,11 +46,11 @@ function buildTypedIndex<T>(
 	return typedIndex;
 }
 
-function toTypedEntries<T>(
+function toTypedEntries<TM, TC>(
 	entries: CollectionEntry[],
-): TypedCollectionEntry<T>[] {
+): TypedCollectionEntry<TM, TC>[] {
 	if (entries.length === 0) return [];
-	const typedIndex = buildTypedIndex<T>(entries[0].index);
+	const typedIndex = buildTypedIndex<TM, TC>(entries[0].index);
 	return entries.map((e) => typedIndex[e.slug]);
 }
 
@@ -63,7 +65,10 @@ function toTypedEntries<T>(
  */
 export function getCollection<K extends keyof CollectionMap>(
 	name: K,
-): TypedCollectionEntry<CollectionMap[K]>[];
+): TypedCollectionEntry<
+	InferMetadata<CollectionMap[K]>,
+	InferComputed<CollectionMap[K]>
+>[];
 export function getCollection(
 	name: string,
 ): TypedCollectionEntry<Record<string, unknown>>[];
@@ -74,9 +79,9 @@ export function getCollection(
 	return toTypedEntries(collection.entries);
 }
 
-function matchesFilter<T>(
-	entry: TypedCollectionEntry<T>,
-	filter: CollectionEntryFilter<T>,
+function matchesFilter<TM, TC>(
+	entry: TypedCollectionEntry<TM, TC>,
+	filter: CollectionEntryFilter<TM, TC>,
 ): boolean {
 	if (typeof filter === "string") {
 		return entry.slug === filter;
@@ -100,19 +105,42 @@ function matchesFilter<T>(
 export function getCollectionEntry<K extends keyof CollectionMap>(
 	name: K,
 	filter: string,
-): TypedCollectionEntry<CollectionMap[K]> | undefined;
+):
+	| TypedCollectionEntry<
+			InferMetadata<CollectionMap[K]>,
+			InferComputed<CollectionMap[K]>
+	  >
+	| undefined;
 export function getCollectionEntry<K extends keyof CollectionMap>(
 	name: K,
 	filter: RegExp,
-): TypedCollectionEntry<CollectionMap[K]>[];
+): TypedCollectionEntry<
+	InferMetadata<CollectionMap[K]>,
+	InferComputed<CollectionMap[K]>
+>[];
 export function getCollectionEntry<K extends keyof CollectionMap>(
 	name: K,
-	filter: CollectionEntryFilter<CollectionMap[K]>[],
-): TypedCollectionEntry<CollectionMap[K]>[];
+	filter: CollectionEntryFilter<
+		InferMetadata<CollectionMap[K]>,
+		InferComputed<CollectionMap[K]>
+	>[],
+): TypedCollectionEntry<
+	InferMetadata<CollectionMap[K]>,
+	InferComputed<CollectionMap[K]>
+>[];
 export function getCollectionEntry<K extends keyof CollectionMap>(
 	name: K,
-	filter: Exclude<CollectionEntryFilterInput<CollectionMap[K]>, string>,
-): TypedCollectionEntry<CollectionMap[K]>[];
+	filter: Exclude<
+		CollectionEntryFilterInput<
+			InferMetadata<CollectionMap[K]>,
+			InferComputed<CollectionMap[K]>
+		>,
+		string
+	>,
+): TypedCollectionEntry<
+	InferMetadata<CollectionMap[K]>,
+	InferComputed<CollectionMap[K]>
+>[];
 export function getCollectionEntry(
 	name: string,
 	filter: string,
@@ -133,11 +161,14 @@ export function getCollectionEntry(
 	name: string,
 	filter: CollectionEntryFilterInput<Record<string, unknown>>,
 ):
-	| TypedCollectionEntry<Record<string, unknown>>
-	| TypedCollectionEntry<Record<string, unknown>>[]
+	| TypedCollectionEntry<Record<string, unknown>, any>
+	| TypedCollectionEntry<Record<string, unknown>, any>[]
 	| undefined {
 	const collection = resolveCollection(name);
-	const entries = toTypedEntries<Record<string, unknown>>(collection.entries);
+	const entries = toTypedEntries<
+		Record<string, unknown>,
+		Record<string, unknown>
+	>(collection.entries);
 
 	if (typeof filter === "string") {
 		return entries.find((e) => e.slug === filter);
