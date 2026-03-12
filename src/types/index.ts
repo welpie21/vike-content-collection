@@ -77,6 +77,37 @@ export type InferComputed<T> = T extends { computed: infer C }
 	? C
 	: Record<string, unknown>;
 
+/** Result of rendering a content entry. */
+export interface RenderResult {
+	html: string;
+	headings: Heading[];
+}
+
+/** A heading extracted from content. */
+export interface Heading {
+	depth: number;
+	text: string;
+	id: string;
+}
+
+/** Options for rendering a content entry. */
+export interface RenderOptions {
+	remarkPlugins?: any[];
+	rehypePlugins?: any[];
+	renderer?: ContentRenderer;
+}
+
+/**
+ * A pluggable content renderer. Implement this interface to provide
+ * custom markdown or MDX rendering logic.
+ */
+export interface ContentRenderer {
+	render(
+		content: string,
+		options?: { remarkPlugins?: any[]; rehypePlugins?: any[] },
+	): Promise<RenderResult>;
+}
+
 /** Predicate function used to filter collection entries. */
 export type CollectionEntryPredicate<T, C = Record<string, unknown>> = (
 	entry: TypedCollectionEntry<T, C>,

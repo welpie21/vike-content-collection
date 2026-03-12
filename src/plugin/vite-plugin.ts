@@ -20,7 +20,7 @@ import { validateMetadata } from "./validation.js";
 const VIRTUAL_MODULE_ID = "virtual:content-collection";
 const RESOLVED_VIRTUAL_MODULE_ID = `\0${VIRTUAL_MODULE_ID}`;
 const CONTENT_CONFIG_PATTERN = /\+Content\.(ts|js|mts|mjs)$/;
-const MARKDOWN_PATTERN = /\.md$/i;
+const MARKDOWN_PATTERN = /\.mdx?$/i;
 const DATA_FILE_PATTERN = /\.(json|ya?ml|toml)$/i;
 
 interface PluginDevServer {

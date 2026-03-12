@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { extractHeadings, renderEntry } from "../src/runtime/render";
-import type { TypedCollectionEntry } from "../src/types/index";
+import type { ContentRenderer, TypedCollectionEntry } from "../src/types/index";
 
 function makeEntry(
 	content: string,
@@ -93,6 +93,56 @@ describe("renderEntry", () => {
 
 		expect(result.headings[0].id).toBe("hello");
 		expect(result.headings[1].id).toBe("hello-1");
+	});
+
+	it("uses a custom renderer when provided", async () => {
+		const customRenderer: ContentRenderer = {
+			async render(content) {
+				return {
+					html: `<custom>${content}</custom>`,
+					headings: [{ depth: 1, text: "Custom", id: "custom" }],
+				};
+			},
+		};
+
+		const entry = makeEntry("some content");
+		const result = await renderEntry(entry, { renderer: customRenderer });
+
+		expect(result.html).toBe("<custom>some content</custom>");
+		expect(result.headings).toEqual([
+			{ depth: 1, text: "Custom", id: "custom" },
+		]);
+	});
+
+	it("falls back to default markdown renderer when no renderer specified", async () => {
+		const entry = makeEntry("# Default");
+		const result = await renderEntry(entry);
+
+		expect(result.html).toContain("<h1");
+		expect(result.html).toContain("Default");
+	});
+
+	it("passes remark/rehype plugins to custom renderer", async () => {
+		let receivedPlugins: any = {};
+		const customRenderer: ContentRenderer = {
+			async render(_content, options) {
+				receivedPlugins = options;
+				return { html: "", headings: [] };
+			},
+		};
+
+		const remarkPlugin = () => () => {};
+		const rehypePlugin = () => () => {};
+
+		const entry = makeEntry("test");
+		await renderEntry(entry, {
+			renderer: customRenderer,
+			remarkPlugins: [remarkPlugin],
+			rehypePlugins: [rehypePlugin],
+		});
+
+		expect(receivedPlugins.remarkPlugins).toEqual([remarkPlugin]);
+		expect(receivedPlugins.rehypePlugins).toEqual([rehypePlugin]);
 	});
 });
 

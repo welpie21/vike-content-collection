@@ -9,8 +9,9 @@ export {
 export type { PaginationResult } from "./runtime/helpers.js";
 export { paginate, sortCollection } from "./runtime/helpers.js";
 export { reference } from "./runtime/reference.js";
-export type { Heading, RenderOptions, RenderResult } from "./runtime/render.js";
 export { extractHeadings, renderEntry } from "./runtime/render.js";
+export { createMarkdownRenderer } from "./runtime/renderers/markdown.js";
+export { createMdxRenderer } from "./runtime/renderers/mdx.js";
 export type {
 	Collection,
 	CollectionEntry,
@@ -22,10 +23,14 @@ export type {
 	ContentCollectionConfig,
 	ContentCollectionDefinition,
 	ContentCollectionPluginOptions,
+	ContentRenderer,
+	Heading,
 	InferComputed,
 	InferMetadata,
 	MetadataLineMap,
 	ParsedMarkdown,
+	RenderOptions,
+	RenderResult,
 	ResolvedContentConfig,
 	SlugInput,
 	TypedCollectionEntry,

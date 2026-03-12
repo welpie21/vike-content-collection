@@ -83,9 +83,9 @@ The collection name is automatically derived from the directory path of `+Conten
 
 This name is what you pass to `getCollection()` and `getCollectionEntry()`.
 
-## Content collections (markdown)
+## Content collections (markdown and MDX)
 
-The default collection type. The plugin scans for `.md` files and parses YAML frontmatter:
+The default collection type. The plugin scans for `.md` and `.mdx` files and parses YAML frontmatter:
 
 ```md
 ---
@@ -100,7 +100,9 @@ The frontmatter is validated against your schema. The body text is available as 
 
 ### File discovery
 
-By default, the plugin looks for `.md` files in the same directory as the `+Content.ts` file and its subdirectories. Files are matched recursively.
+By default, the plugin looks for `.md` and `.mdx` files in the same directory as the `+Content.ts` file and its subdirectories. Files are matched recursively.
+
+MDX files (`.mdx`) work exactly like markdown files -- they have YAML frontmatter and a body. The difference is that MDX content can include JSX syntax. Use `createMdxRenderer()` to render MDX entries (see [Rendering Content](./rendering.md#mdx-rendering)).
 
 ## Data collections
 

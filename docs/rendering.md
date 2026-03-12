@@ -1,6 +1,6 @@
 # Rendering Content
 
-The plugin includes a built-in rendering pipeline powered by [unified](https://unifiedjs.com/), [remark](https://github.com/remarkjs/remark), and [rehype](https://github.com/rehypejs/rehype). Use it to convert markdown entries to HTML and extract headings for navigation.
+The plugin includes a pluggable rendering system with built-in renderers for markdown and MDX, powered by [unified](https://unifiedjs.com/), [remark](https://github.com/remarkjs/remark), and [rehype](https://github.com/rehypejs/rehype). Use it to convert content entries to HTML and extract headings for navigation. You can also implement your own `ContentRenderer` for custom rendering pipelines.
 
 ## `renderEntry(entry, options?)`
 
@@ -96,10 +96,11 @@ const { html, headings } = await renderEntry(post, {
 
 ### `RenderOptions`
 
-| Field           | Type    | Description                           |
-| --------------- | ------- | ------------------------------------- |
-| `remarkPlugins` | `any[]` | Additional remark plugins to apply    |
-| `rehypePlugins` | `any[]` | Additional rehype plugins to apply    |
+| Field           | Type              | Description                                          |
+| --------------- | ----------------- | ---------------------------------------------------- |
+| `remarkPlugins` | `any[]`           | Additional remark plugins to apply                   |
+| `rehypePlugins` | `any[]`           | Additional rehype plugins to apply                   |
+| `renderer`      | `ContentRenderer` | Custom renderer (defaults to built-in markdown)      |
 
 Custom plugins are added after the built-in ones. The built-in pipeline is:
 
@@ -145,6 +146,101 @@ const { html } = await renderEntry(post, {
 })
 ```
 
+## MDX rendering
+
+For `.mdx` files that contain JSX syntax, use `createMdxRenderer()`:
+
+```ts
+import { createMdxRenderer, getCollectionEntry, renderEntry } from 'vike-content-collection'
+
+const mdxRenderer = createMdxRenderer()
+
+const post = getCollectionEntry('blog', 'my-mdx-post')
+if (post) {
+  const { html, headings } = await renderEntry(post, { renderer: mdxRenderer })
+}
+```
+
+The MDX renderer uses `remark-mdx` to parse MDX syntax within the unified pipeline. JSX elements are serialized as their HTML tag equivalents in the output. The heading extraction works the same as with the markdown renderer.
+
+### Reusing the MDX renderer
+
+Create the renderer once and reuse it across renders:
+
+```ts
+const mdxRenderer = createMdxRenderer({
+  remarkPlugins: [remarkGfm],
+})
+
+// Use for all MDX entries
+for (const entry of mdxEntries) {
+  const { html } = await renderEntry(entry, { renderer: mdxRenderer })
+}
+```
+
+### When to use which renderer
+
+| File type | Renderer | Usage |
+| --------- | -------- | ----- |
+| `.md`     | Default (markdown) | `renderEntry(entry)` |
+| `.mdx`    | MDX | `renderEntry(entry, { renderer: createMdxRenderer() })` |
+| Custom    | Your own | `renderEntry(entry, { renderer: myRenderer })` |
+
+## Custom renderers
+
+Implement the `ContentRenderer` interface to provide your own rendering pipeline:
+
+```ts
+import type { ContentRenderer, RenderResult } from 'vike-content-collection'
+
+const myRenderer: ContentRenderer = {
+  async render(content, options): Promise<RenderResult> {
+    // Your custom rendering logic here
+    const html = myCustomRender(content)
+    const headings = myCustomHeadingExtractor(content)
+    return { html, headings }
+  }
+}
+```
+
+Pass it to `renderEntry()`:
+
+```ts
+const { html, headings } = await renderEntry(post, { renderer: myRenderer })
+```
+
+### `ContentRenderer` interface
+
+```ts
+interface ContentRenderer {
+  render(
+    content: string,
+    options?: { remarkPlugins?: any[]; rehypePlugins?: any[] },
+  ): Promise<RenderResult>
+}
+```
+
+The `options` parameter receives any `remarkPlugins` and `rehypePlugins` passed to `renderEntry()`. Your renderer can use them or ignore them depending on your implementation.
+
+### Built-in renderer factories
+
+Both built-in renderers accept default plugins that are applied on every render:
+
+```ts
+import { createMarkdownRenderer, createMdxRenderer } from 'vike-content-collection'
+
+const mdRenderer = createMarkdownRenderer({
+  remarkPlugins: [remarkGfm],
+  rehypePlugins: [rehypeHighlight],
+})
+
+const mdxRenderer = createMdxRenderer({
+  remarkPlugins: [remarkGfm],
+})
+```
+
+Per-call plugins passed to `renderEntry()` are merged after the defaults.
+
 ## `extractHeadings(content)`
 
 Extracts headings from raw markdown without a full HTML render. Use this when you only need a table of contents:
@@ -167,5 +263,5 @@ This parses the markdown AST just enough to find heading nodes, making it faster
 
 ## Next steps
 
-- [Advanced Features](./advanced-features.md) -- computed fields, references, drafts, sorting, and more
+- [Advanced Features](./advanced-features.md) -- computed fields, references, drafts, custom renderers, and more
 - [Querying Data](./querying-data.md) -- filtering and retrieving collection entries

@@ -94,9 +94,9 @@ export const Content = z.object({
 })
 ```
 
-### 2. Add a markdown file
+### 2. Add a content file
 
-Create a markdown file in the same directory. The YAML frontmatter must match the schema:
+Create a `.md` or `.mdx` file in the same directory. The YAML frontmatter must match the schema:
 
 ```md
 <!-- pages/blog/hello-world.md -->

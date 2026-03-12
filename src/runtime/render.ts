@@ -1,79 +1,42 @@
 import GithubSlugger from "github-slugger";
 import type { Root as MdastRoot } from "mdast";
 import { toString as mdastToString } from "mdast-util-to-string";
-import rehypeSlug from "rehype-slug";
-import rehypeStringify from "rehype-stringify";
 import remarkParse from "remark-parse";
-import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
-import type { TypedCollectionEntry } from "../types/index.js";
+import type {
+	ContentRenderer,
+	Heading,
+	RenderOptions,
+	RenderResult,
+	TypedCollectionEntry,
+} from "../types/index.js";
+import { createMarkdownRenderer } from "./renderers/markdown.js";
 
-export interface Heading {
-	depth: number;
-	text: string;
-	id: string;
-}
+export type { Heading, RenderOptions, RenderResult } from "../types/index.js";
 
-export interface RenderResult {
-	html: string;
-	headings: Heading[];
-}
+let defaultRenderer: ContentRenderer | null = null;
 
-export interface RenderOptions {
-	remarkPlugins?: any[];
-	rehypePlugins?: any[];
+function getDefaultRenderer(): ContentRenderer {
+	if (!defaultRenderer) {
+		defaultRenderer = createMarkdownRenderer();
+	}
+	return defaultRenderer;
 }
 
 /**
- * Render a collection entry's markdown content to HTML and extract headings.
+ * Render a collection entry's content to HTML and extract headings.
+ *
+ * Uses the built-in markdown renderer by default. Pass a custom renderer
+ * via `options.renderer` to use a different rendering pipeline (e.g. MDX).
  */
 export async function renderEntry<T>(
 	entry: TypedCollectionEntry<T>,
 	options: RenderOptions = {},
 ): Promise<RenderResult> {
-	const headings: Heading[] = [];
-	const slugger = new GithubSlugger();
-
-	const remarkExtractHeadings = () => {
-		return (tree: MdastRoot) => {
-			visit(tree, "heading", (node) => {
-				const text = mdastToString(node);
-				headings.push({
-					depth: node.depth,
-					text,
-					id: slugger.slug(text),
-				});
-			});
-		};
-	};
-
-	// Build the pipeline as a single chain to keep unified's types happy.
-	const remarkPlugins: any[] = [
-		remarkExtractHeadings,
-		...(options.remarkPlugins ?? []),
-	];
-	const rehypePlugins: any[] = [rehypeSlug, ...(options.rehypePlugins ?? [])];
-
-	let processor: any = unified().use(remarkParse);
-
-	for (const plugin of remarkPlugins) {
-		processor = processor.use(plugin);
-	}
-
-	processor = processor.use(remarkRehype);
-
-	for (const plugin of rehypePlugins) {
-		processor = processor.use(plugin);
-	}
-
-	processor = processor.use(rehypeStringify);
-
-	const result = await processor.process(entry.content);
-	return {
-		html: String(result),
-		headings,
-	};
+	const { renderer: customRenderer, ...pluginOptions } = options;
+	const renderer = customRenderer ?? getDefaultRenderer();
+	return renderer.render(entry.content, pluginOptions);
 }
 
 /**

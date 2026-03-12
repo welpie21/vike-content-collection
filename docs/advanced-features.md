@@ -1,6 +1,6 @@
 # Advanced Features
 
-This guide covers the plugin's advanced capabilities: computed fields, collection references, custom slugs, draft mode, sorting, pagination, git integration, and the virtual module.
+This guide covers the plugin's advanced capabilities: computed fields, collection references, custom slugs, draft mode, sorting, pagination, git integration, custom renderers, and the virtual module.
 
 ## Computed fields
 
@@ -294,6 +294,52 @@ for (const post of posts) {
 ```
 
 `lastModified` is `undefined` if git is unavailable or the file is untracked (e.g. newly created and not yet committed).
+
+## Custom content renderers
+
+The plugin ships with built-in markdown and MDX renderers, but you can implement the `ContentRenderer` interface for full control over how content is rendered.
+
+### The `ContentRenderer` interface
+
+```ts
+import type { ContentRenderer, RenderResult } from 'vike-content-collection'
+
+const myRenderer: ContentRenderer = {
+  async render(content, options): Promise<RenderResult> {
+    // content: raw markdown/MDX body string
+    // options: { remarkPlugins?, rehypePlugins? } from renderEntry() call
+    return {
+      html: '<p>Your rendered HTML</p>',
+      headings: [{ depth: 1, text: 'Title', id: 'title' }]
+    }
+  }
+}
+```
+
+### Using a custom renderer
+
+Pass it to `renderEntry()` via the `renderer` option:
+
+```ts
+import { renderEntry } from 'vike-content-collection'
+
+const { html, headings } = await renderEntry(post, { renderer: myRenderer })
+```
+
+### Built-in renderer factories
+
+The plugin exports two renderer factories. Both accept default plugins:
+
+```ts
+import { createMarkdownRenderer, createMdxRenderer } from 'vike-content-collection'
+
+const mdRenderer = createMarkdownRenderer({ remarkPlugins: [remarkGfm] })
+const mdxRenderer = createMdxRenderer({ remarkPlugins: [remarkGfm] })
+```
+
+When no `renderer` is specified in `renderEntry()`, the built-in markdown renderer is used.
+
+See [Rendering Content](./rendering.md) for more detail on MDX rendering and the full rendering pipeline.
 
 ## Virtual module
 

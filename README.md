@@ -18,8 +18,9 @@ Define a [Zod](https://zod.dev/) schema, drop in your markdown files, and get fu
 
 - **Zod schema validation** -- frontmatter is parsed and validated with precise error reporting (file, line, column)
 - **Full type inference** -- auto-generated declaration file powers typesafe `getCollection()` and `getCollectionEntry()`
-- **Markdown & data collections** -- `.md` files with frontmatter, or `.json` / `.yaml` / `.toml` data files
-- **Built-in rendering** -- markdown to HTML via unified/remark/rehype, with heading extraction
+- **Markdown, MDX & data collections** -- `.md` and `.mdx` files with frontmatter, or `.json` / `.yaml` / `.toml` data files
+- **Built-in rendering** -- markdown and MDX to HTML via unified/remark/rehype, with heading extraction
+- **Pluggable renderers** -- use the built-in markdown or MDX renderer, or implement your own `ContentRenderer`
 - **Computed fields** -- derive reading time, excerpts, or any value from each entry
 - **Collection references** -- cross-collection slug validation
 - **Draft mode** -- drafts visible in dev, excluded in production
@@ -84,7 +85,7 @@ export const Content = z.object({
 
 ### 5. Add content
 
-Place `.md` files alongside (or in subdirectories of) the `+Content.ts`:
+Place `.md` or `.mdx` files alongside (or in subdirectories of) the `+Content.ts`:
 
 ```md
 ---
@@ -281,6 +282,34 @@ const { html } = await renderEntry(post, {
   remarkPlugins: [remarkGfm],
   rehypePlugins: [rehypeHighlight],
 })
+```
+
+#### MDX rendering
+
+Use `createMdxRenderer()` to render `.mdx` files that contain JSX syntax:
+
+```ts
+import { createMdxRenderer, renderEntry } from 'vike-content-collection'
+
+const mdxRenderer = createMdxRenderer()
+const { html, headings } = await renderEntry(post, { renderer: mdxRenderer })
+```
+
+#### Custom renderers
+
+Implement the `ContentRenderer` interface to provide your own rendering pipeline:
+
+```ts
+import type { ContentRenderer } from 'vike-content-collection'
+
+const myRenderer: ContentRenderer = {
+  async render(content, options) {
+    // Your custom rendering logic
+    return { html: '<p>rendered</p>', headings: [] }
+  }
+}
+
+const { html } = await renderEntry(post, { renderer: myRenderer })
 ```
 
 #### Extracting headings only
@@ -490,7 +519,7 @@ Errors include the file path, line number, Zod error path, and validation messag
 ## How It Works
 
 1. **Scan** -- finds `+Content.ts` files in `contentDir` on `buildStart`
-2. **Parse** -- extracts YAML frontmatter from `.md` files (via [gray-matter](https://github.com/jonschlinkert/gray-matter)), or reads `.json`/`.yaml`/`.toml` for data collections
+2. **Parse** -- extracts YAML frontmatter from `.md`/`.mdx` files (via [gray-matter](https://github.com/jonschlinkert/gray-matter)), or reads `.json`/`.yaml`/`.toml` for data collections
 3. **Validate** -- checks each entry against its Zod schema, mapping errors back to source line numbers
 4. **Compute** -- runs computed field functions on validated entries
 5. **Filter** -- excludes draft entries in production
@@ -509,8 +538,10 @@ import {
   vikeContentCollectionPlugin,  // Vite plugin factory (also the default export)
   getCollection,                // all entries of a collection
   getCollectionEntry,           // filtered entries
-  renderEntry,                  // markdown -> HTML
+  renderEntry,                  // content -> HTML (uses default or custom renderer)
   extractHeadings,              // headings from markdown
+  createMarkdownRenderer,       // built-in markdown renderer factory
+  createMdxRenderer,            // built-in MDX renderer factory
   sortCollection,               // sort by metadata key
   paginate,                     // paginate entries
   reference,                    // cross-collection reference schema
@@ -537,6 +568,7 @@ import type {
   ParsedMarkdown,
   MetadataLineMap,
   ValidationIssue,
+  ContentRenderer,
   RenderResult,
   RenderOptions,
   Heading,
@@ -562,8 +594,9 @@ import type {
 | `ParsedMarkdown` | Result of parsing a markdown file |
 | `MetadataLineMap` | Maps metadata key paths to line numbers |
 | `ValidationIssue` | Validation error with file, line, path, and message |
+| `ContentRenderer` | Interface for pluggable content renderers |
 | `RenderResult` | `{ html: string, headings: Heading[] }` |
-| `RenderOptions` | Custom `remarkPlugins` and `rehypePlugins` |
+| `RenderOptions` | Custom `remarkPlugins`, `rehypePlugins`, and optional `renderer` |
 | `Heading` | `{ depth: number, text: string, id: string }` |
 | `PaginationResult<T>` | Paginated result with `items`, page info, and navigation |
 
