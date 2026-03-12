@@ -27,6 +27,8 @@ export type {
 	Heading,
 	InferComputed,
 	InferMetadata,
+	MdxEvaluateOptions,
+	MdxRendererOptions,
 	MetadataLineMap,
 	ParsedMarkdown,
 	RenderOptions,

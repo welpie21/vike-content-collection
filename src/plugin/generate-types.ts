@@ -48,10 +48,10 @@ export function buildDeclarationContent(
 	if (collections.length === 0) {
 		return (
 			HEADER +
+			`export {}\n` +
 			`declare module 'vike-content-collection' {\n` +
 			`  interface CollectionMap {}\n` +
-			`}\n\n` +
-			`export { };\n`
+			`}\n`
 		);
 	}
 

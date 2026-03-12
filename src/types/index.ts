@@ -108,6 +108,32 @@ export interface ContentRenderer {
 	): Promise<RenderResult>;
 }
 
+/** Options for full JSX evaluation in the MDX renderer. */
+export interface MdxEvaluateOptions {
+	/** JSX factory function (from your framework's jsx-runtime). */
+	jsx: (type: any, props: any, key?: string) => any;
+	/** JSX factory for static children (from your framework's jsx-runtime). */
+	jsxs: (type: any, props: any, key?: string) => any;
+	/** Fragment component (from your framework's jsx-runtime). */
+	Fragment: any;
+	/** Converts the rendered MDX component to an HTML string. */
+	renderToHtml: (component: any) => string | Promise<string>;
+	/** Custom components available in MDX files (keyed by component name). */
+	components?: Record<string, any>;
+	/** Base URL for resolving relative imports in compiled MDX. Defaults to import.meta.url. */
+	baseUrl?: string;
+}
+
+/** Options specific to createMdxRenderer(). */
+export interface MdxRendererOptions extends Omit<RenderOptions, "renderer"> {
+	/** Vite-compatible resolve config for alias support in MDX import statements. */
+	resolve?: {
+		alias?: Record<string, string>;
+	};
+	/** Enable full JSX evaluation mode. Without this, JSX elements render as HTML tags. */
+	evaluate?: MdxEvaluateOptions;
+}
+
 /** Predicate function used to filter collection entries. */
 export type CollectionEntryPredicate<T, C = Record<string, unknown>> = (
 	entry: TypedCollectionEntry<T, C>,
