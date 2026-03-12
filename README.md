@@ -47,9 +47,14 @@ npm install vike vite zod
 import vikeContentCollection from 'vike-content-collection'
 
 export default {
-  plugins: [vikeContentCollection()]
+  plugins: [vikeContentCollection()],
+  ssr: {
+    external: ['vike-content-collection']
+  }
 }
 ```
+
+Marking the package as `ssr.external` ensures Vite doesn't bundle it during SSR, which is required for the plugin to work correctly.
 
 ### 3. Extend the Vike config
 

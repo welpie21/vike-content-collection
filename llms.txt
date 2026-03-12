@@ -27,6 +27,7 @@ Config export from `vike-content-collection/config`:
 
 ## Key Concepts
 
+- `vike-content-collection` must be listed in `ssr.external` in `vite.config.ts` so Vite does not bundle it during SSR
 - A `+Content.ts` file defines a collection by exporting a Zod schema (or `{ schema, computed?, slug?, type? }`)
 - Collection names are derived from directory paths (e.g. `pages/blog/+Content.ts` → `"blog"`)
 - Content collections (default): `.md` files with YAML frontmatter validated against the schema

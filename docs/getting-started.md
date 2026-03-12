@@ -38,9 +38,14 @@ export default {
   plugins: [
     vike(),
     vikeContentCollection()
-  ]
+  ],
+  ssr: {
+    external: ['vike-content-collection']
+  }
 }
 ```
+
+The `ssr.external` entry is required -- it tells Vite not to bundle the package during SSR so the plugin's runtime works correctly.
 
 The plugin accepts [options](./advanced-features.md#plugin-options) but none are required to get started.
 
