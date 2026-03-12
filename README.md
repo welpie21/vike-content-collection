@@ -1,28 +1,49 @@
 # vike-content-collection
 
-A content collection plugin for [Vike](https://vike.dev/) + [Vite](https://vite.dev/) that lets you define typed, schema-validated content collections using [zod](https://zod.dev/).
+Type-safe, schema-validated content collections for [Vike](https://vike.dev/) + [Vite](https://vite.dev/).
 
-Define a zod schema in a `+Content.ts` file, and the plugin will parse your markdown metadata (YAML frontmatter), validate it against your schema, and make the resulting data available at build time and during development -- both through Vike's `pageContext` and as a virtual module consumable by other Vite plugins. Supports markdown content collections and data-only collections (JSON, YAML, TOML), with built-in rendering, computed fields, draft mode, and more.
+Define a [Zod](https://zod.dev/) schema, drop in your markdown files, and get fully typed content with validated frontmatter -- at dev time and build time.
 
-## Installation
+## Documentation
+
+| Guide | Description |
+| ----- | ----------- |
+| [Getting Started](./docs/getting-started.md) | Installation, setup, and your first collection |
+| [Defining Collections](./docs/defining-collections.md) | Schema formats, data collections, content directories |
+| [Querying Data](./docs/querying-data.md) | `getCollection`, `getCollectionEntry`, usage patterns |
+| [Rendering Content](./docs/rendering.md) | Markdown to HTML, headings, custom plugins |
+| [Advanced Features](./docs/advanced-features.md) | Computed fields, references, drafts, sorting, and more |
+
+## Features
+
+- **Zod schema validation** -- frontmatter is parsed and validated with precise error reporting (file, line, column)
+- **Full type inference** -- auto-generated declaration file powers typesafe `getCollection()` and `getCollectionEntry()`
+- **Markdown & data collections** -- `.md` files with frontmatter, or `.json` / `.yaml` / `.toml` data files
+- **Built-in rendering** -- markdown to HTML via unified/remark/rehype, with heading extraction
+- **Computed fields** -- derive reading time, excerpts, or any value from each entry
+- **Collection references** -- cross-collection slug validation
+- **Draft mode** -- drafts visible in dev, excluded in production
+- **HMR** -- incremental updates on file changes during development
+- **Virtual module** -- `virtual:content-collection` exposes data to other Vite plugins
+
+## Quick Start
+
+### 1. Install
 
 ```bash
 npm install vike-content-collection
 ```
 
-Peer dependencies (install separately if not already present):
+Peer dependencies (if not already installed):
 
 ```bash
 npm install vike vite zod
 ```
 
-## Setup
-
-### 1. Register the Vite plugin
-
-Add the plugin to your `vite.config.ts`:
+### 2. Add the Vite plugin
 
 ```ts
+// vite.config.ts
 import vikeContentCollection from 'vike-content-collection'
 
 export default {
@@ -30,11 +51,10 @@ export default {
 }
 ```
 
-### 2. Extend the Vike config
-
-In your root (or pages-level) `+config.ts`, extend with the content collection config so Vike recognizes `+Content.ts` files:
+### 3. Extend the Vike config
 
 ```ts
+// +config.ts (root or pages-level)
 import vikeContentCollectionConfig from 'vike-content-collection/config'
 
 export default {
@@ -42,11 +62,9 @@ export default {
 }
 ```
 
-## Usage
+### 4. Define a collection
 
-### Defining a collection
-
-Create a `+Content.ts` file in any page directory. The simplest form exports `Content` as a zod schema that describes the metadata shape:
+Create a `+Content.ts` in any page directory:
 
 ```ts
 // pages/blog/+Content.ts
@@ -59,53 +77,9 @@ export const Content = z.object({
 })
 ```
 
-#### Extended config format
+### 5. Add content
 
-For more control, export `Content` as an object with a `schema` property along with additional options:
-
-```ts
-// pages/blog/+Content.ts
-import { z } from 'zod'
-
-export const Content = {
-  schema: z.object({
-    title: z.string(),
-    date: z.date(),
-    draft: z.boolean().default(false),
-    permalink: z.string().optional()
-  }),
-
-  // Derive additional data from each entry (see Computed Fields)
-  computed: {
-    readingTime: ({ content }) => Math.ceil(content.split(/\s+/).length / 200),
-    excerpt: ({ content }) => content.slice(0, 200) + '...',
-  },
-
-  // Custom slug derivation (see Custom Slugs)
-  slug: ({ metadata, defaultSlug }) =>
-    metadata.permalink ?? defaultSlug,
-}
-```
-
-Both formats are fully supported. If `Content` has a `safeParse` method, it is treated as a plain zod schema. Otherwise, the plugin expects a `schema` property.
-
-The plugin supports named and default exports:
-
-```ts
-// Named export (recommended)
-export const Content = z.object({ ... })
-
-// Default export with Content property
-const Content = z.object({ ... })
-export default { Content }
-
-// Direct default export
-export default z.object({ ... })
-```
-
-### Writing content
-
-Place markdown files in the same directory as `+Content.ts` (or subdirectories), or use the `contentRoot` option to keep them in a separate directory. The YAML frontmatter must match the schema:
+Place `.md` files alongside (or in subdirectories of) the `+Content.ts`:
 
 ```md
 ---
@@ -113,17 +87,79 @@ title: "Getting Started"
 date: 2025-03-10T00:00:00.000Z
 tags:
   - tutorial
-  - beginner
 ---
 
-This is the body content of the post.
+Welcome to the blog.
 ```
 
-By default, the plugin discovers `.md` files in the same directory as the `+Content.ts` config. When `contentRoot` is set, it looks in `contentRoot/<collectionName>/` instead. For example, with `contentRoot: 'content'` and a config at `pages/blog/+Content.ts`, markdown files are loaded from `content/blog/`.
+### 6. Query your collection
 
-### Data-only collections
+```ts
+// pages/blog/+data.ts
+import { getCollection } from 'vike-content-collection'
 
-For structured data without a markdown body (author profiles, navigation config, product catalogs), set `type: 'data'` in the extended config. The plugin will scan for `.json`, `.yaml`/`.yml`, and `.toml` files instead of `.md`:
+export function data() {
+  const posts = getCollection('blog')
+  return { posts }
+}
+```
+
+That's it. `posts` is fully typed based on your Zod schema.
+
+---
+
+## Guide
+
+### Defining collections
+
+The simplest form exports `Content` as a Zod schema:
+
+```ts
+export const Content = z.object({
+  title: z.string(),
+  date: z.date()
+})
+```
+
+For more control, export an object with a `schema` property:
+
+```ts
+export const Content = {
+  schema: z.object({
+    title: z.string(),
+    date: z.date(),
+    draft: z.boolean().default(false),
+    permalink: z.string().optional()
+  }),
+  computed: {
+    readingTime: ({ content }) => Math.ceil(content.split(/\s+/).length / 200),
+  },
+  slug: ({ metadata, defaultSlug }) => metadata.permalink ?? defaultSlug,
+}
+```
+
+Both named and default exports are supported:
+
+```ts
+export const Content = z.object({ ... })           // named (recommended)
+export default { Content: z.object({ ... }) }       // default with Content property
+export default z.object({ ... })                    // direct default
+```
+
+> If the export has a `safeParse` method it is treated as a plain Zod schema; otherwise the plugin expects a `schema` property.
+
+### Collection names
+
+The collection name is derived from the directory where `+Content.ts` lives:
+
+| `+Content.ts` location          | Collection name |
+| -------------------------------- | --------------- |
+| `pages/blog/+Content.ts`        | `"blog"`        |
+| `pages/docs/guides/+Content.ts` | `"docs/guides"` |
+
+### Data collections
+
+For structured data without a markdown body (author profiles, navigation config, etc.), set `type: 'data'`. The plugin scans for `.json`, `.yaml`/`.yml`, and `.toml` files instead of `.md`:
 
 ```ts
 // pages/authors/+Content.ts
@@ -139,84 +175,83 @@ export const Content = {
 }
 ```
 
-Each file in the collection directory becomes one entry. Each file is validated against the schema. The `content` field on data entries is an empty string.
+Each file becomes one entry. The `content` field is an empty string for data entries.
 
-### Accessing collection data
+### Content directory
 
-#### Via `getCollection()` (recommended)
-
-The plugin exports a typesafe `getCollection()` function. Call it with the collection name (the directory path relative to the content root where `+Content.ts` lives):
+By default, content files live alongside their `+Content.ts`. Set `contentRoot` to keep them separate:
 
 ```ts
-// pages/blog/+data.ts
-import { getCollection } from 'vike-content-collection'
-
-export function data() {
-  const posts = getCollection('blog')
-  // posts is fully typed: { filePath, slug, metadata, content, computed, ... }[]
-  return { posts }
-}
+vikeContentCollection({ contentRoot: 'content' })
 ```
 
-Each entry includes:
+With this config, a collection defined at `pages/blog/+Content.ts` loads files from `content/blog/`.
 
-- `filePath` -- absolute path to the source file.
-- `slug` -- unique identifier derived from the filename (or custom slug function).
-- `metadata` -- validated and typed metadata.
-- `content` -- raw markdown body. Empty string for data entries.
-- `computed` -- values produced by computed field functions (empty object if none defined).
-- `lastModified` -- git-based last modification date (`Date | undefined`, opt-in).
-- `_isDraft` -- whether the entry is marked as a draft.
-- `index` -- a lookup map of all sibling entries in the same collection, keyed by slug.
+---
 
-The collection name is derived from the directory structure:
+### Querying collections
 
-| `+Content.ts` location             | Collection name          |
-| ----------------------------------- | ------------------------ |
-| `pages/blog/+Content.ts`           | `"blog"`                 |
-| `pages/docs/guides/+Content.ts`    | `"docs/guides"`          |
+#### `getCollection(name)`
 
-#### Via `getCollectionEntry()`
+Returns all entries in a collection, fully typed:
 
-Use `getCollectionEntry()` to retrieve specific entries from a collection. The second argument accepts several filter types:
+```ts
+import { getCollection } from 'vike-content-collection'
 
-**By slug** -- pass a string to look up a single entry. Returns the entry or `undefined`:
+const posts = getCollection('blog')
+```
+
+#### `getCollectionEntry(name, filter)`
+
+Retrieves specific entries. The filter determines the return type:
+
+| Filter type | Example | Returns |
+| ----------- | ------- | ------- |
+| `string` | `'getting-started'` | Single entry or `undefined` |
+| `RegExp` | `/^tutorial-/` | Array of matching entries |
+| Predicate | `(e) => !e._isDraft` | Array of matching entries |
+| Array | `['intro', /^guide-/]` | Array matching any filter (OR) |
 
 ```ts
 import { getCollectionEntry } from 'vike-content-collection'
 
+// Single entry by slug
 const post = getCollectionEntry('blog', 'getting-started')
-// TypedCollectionEntry | undefined
-```
 
-**By regex** -- pass a `RegExp` to match slugs. Returns an array of matching entries:
-
-```ts
+// Pattern match
 const tutorials = getCollectionEntry('blog', /^tutorial-/)
-// TypedCollectionEntry[]
-```
 
-**By predicate** -- pass a function to filter entries. Returns an array of matching entries:
-
-```ts
+// Predicate
 const published = getCollectionEntry('blog', (e) => !e._isDraft)
-// TypedCollectionEntry[]
-```
 
-**By array** -- pass an array of any of the above (OR semantics). Returns an array of entries matching any filter:
-
-```ts
+// Combined filters (OR semantics)
 const selected = getCollectionEntry('blog', [
   'intro',
   /^tutorial-/,
   (entry) => entry.metadata.featured === true,
 ])
-// TypedCollectionEntry[]
 ```
+
+#### Entry shape
+
+Every entry returned by `getCollection` or `getCollectionEntry` has:
+
+| Field          | Type                    | Description                                            |
+| -------------- | ----------------------- | ------------------------------------------------------ |
+| `filePath`     | `string`                | Absolute path to the source file                       |
+| `slug`         | `string`                | Identifier derived from filename (or custom function)  |
+| `metadata`     | Inferred from schema    | Validated frontmatter data                             |
+| `content`      | `string`                | Raw markdown body (empty string for data entries)      |
+| `computed`     | `Record<string, unknown>` | Values from computed field functions                  |
+| `lastModified` | `Date \| undefined`     | Git-based last modification date (opt-in)              |
+| `_isDraft`     | `boolean`               | Whether the entry is a draft                           |
+| `index`        | `Record<string, Entry>` | Lookup map of all entries in the same collection       |
+
+---
 
 ### Rendering markdown
 
-The plugin includes a built-in rendering pipeline powered by [unified](https://unifiedjs.com/) / remark / rehype. Use `renderEntry()` to convert an entry's markdown content to HTML:
+Convert an entry's markdown to HTML with `renderEntry()`:
 
 ```ts
 import { getCollectionEntry, renderEntry } from 'vike-content-collection'
@@ -224,16 +259,14 @@ import { getCollectionEntry, renderEntry } from 'vike-content-collection'
 const post = getCollectionEntry('blog', 'getting-started')
 if (post) {
   const { html, headings } = await renderEntry(post)
-  // html: rendered HTML string
-  // headings: [{ depth: 2, text: 'Installation', id: 'installation' }, ...]
 }
 ```
 
-Headings are automatically extracted during rendering and returned alongside the HTML. Each heading includes a `depth` (1-6), `text` content, and a generated `id` for anchor links. The rendered HTML includes matching `id` attributes on heading elements via `rehype-slug`.
+`headings` is an array of `{ depth, text, id }` extracted during rendering. Heading elements in the HTML include matching `id` attributes via `rehype-slug`.
 
-#### Custom remark/rehype plugins
+#### Custom plugins
 
-Pass custom remark or rehype plugins to extend the rendering pipeline:
+Pass remark or rehype plugins to extend rendering:
 
 ```ts
 import remarkGfm from 'remark-gfm'
@@ -245,25 +278,24 @@ const { html } = await renderEntry(post, {
 })
 ```
 
-### Extracting headings (without rendering)
+#### Extracting headings only
 
-To extract headings without a full HTML render, use `extractHeadings()`:
+Use `extractHeadings()` when you only need a table of contents (faster than a full render):
 
 ```ts
 import { extractHeadings } from 'vike-content-collection'
 
 const headings = await extractHeadings(post.content)
-// [{ depth: 1, text: 'Title', id: 'title' }, { depth: 2, text: 'Section', id: 'section' }]
+// [{ depth: 1, text: 'Title', id: 'title' }, ...]
 ```
 
-This parses the markdown AST just enough to find heading nodes, which is faster than a full render when you only need a table of contents.
+---
 
 ### Computed fields
 
-Define functions in the extended config that derive additional data from each entry. Computed fields run after metadata validation and are available on the `computed` property:
+Derive additional data from each entry. Computed functions run after validation and receive `{ metadata, content, filePath, slug }`:
 
 ```ts
-// pages/blog/+Content.ts
 export const Content = {
   schema: z.object({ title: z.string() }),
   computed: {
@@ -278,34 +310,33 @@ Access computed values on entries:
 
 ```ts
 const posts = getCollection('blog')
-posts.forEach(post => {
-  console.log(post.computed.readingTime) // number
-  console.log(post.computed.excerpt)     // string
-})
+posts[0].computed.readingTime // number
+posts[0].computed.excerpt     // string
 ```
 
-Each computed function receives `{ metadata, content, filePath, slug }`.
+---
 
 ### Collection references
 
-Use `reference()` to create a zod schema that validates a slug string and marks it as a reference to another collection. After all collections are loaded, the plugin verifies that the referenced slugs exist:
+Use `reference()` to validate that a metadata field points to an existing slug in another collection:
 
 ```ts
-// pages/posts/+Content.ts
 import { z } from 'zod'
 import { reference } from 'vike-content-collection'
 
 export const Content = z.object({
   title: z.string(),
-  author: reference('authors'),  // validates that this slug exists in the "authors" collection
+  author: reference('authors'),
 })
 ```
 
-At validation time, `reference()` accepts any string. After all collections are processed, the plugin runs a cross-collection validation pass and warns about any broken references.
+After all collections are loaded, the plugin runs a cross-collection validation pass and warns about broken references.
+
+---
 
 ### Custom slugs
 
-By default, slugs are derived from the filename (minus the extension). To customize slug generation, provide a `slug` function in the extended config:
+By default, slugs come from the filename (minus extension). Override with a `slug` function:
 
 ```ts
 export const Content = {
@@ -318,32 +349,30 @@ export const Content = {
 }
 ```
 
-The slug function receives `{ metadata, filePath, defaultSlug }` where `defaultSlug` is the filename-based slug that would have been used.
+---
 
 ### Draft mode
 
-Entries with a truthy `draft` field in their metadata are automatically filtered out in production builds while remaining visible during development. No schema changes are required -- the plugin checks the metadata field directly after validation.
+Entries with a truthy `draft` metadata field are automatically excluded in production builds. During development they remain visible with `_isDraft: true`.
 
-In development, draft entries are included with `_isDraft: true` so you can style or badge them differently. In production (`vite build`), drafts are excluded entirely.
-
-Configure the draft field name or override the include behavior via plugin options:
+Configure the draft field name or override filtering:
 
 ```ts
 vikeContentCollection({
   drafts: {
     field: 'draft',         // metadata field to check (default: "draft")
-    includeDrafts: false,   // force exclude even in dev (default: true in dev, false in prod)
+    includeDrafts: false,   // force exclude even in dev
   }
 })
 ```
 
-### Sorting and pagination
+---
 
-The plugin exports helper functions for common collection operations:
+### Sorting & pagination
 
-#### `sortCollection()`
+#### `sortCollection(entries, key, order?)`
 
-Sort entries by a metadata key. Returns a new array without mutating the original:
+Sort entries by a metadata key. Returns a new array:
 
 ```ts
 import { getCollection, sortCollection } from 'vike-content-collection'
@@ -353,52 +382,47 @@ const byDate = sortCollection(posts, 'date', 'desc')   // newest first
 const byTitle = sortCollection(posts, 'title', 'asc')  // alphabetical
 ```
 
-Supports dates, numbers, and strings. Defaults to ascending order.
+Supports dates, numbers, and strings. Defaults to `'asc'`.
 
-#### `paginate()`
+#### `paginate(entries, options)`
 
 Split entries into pages:
 
 ```ts
-import { getCollection, paginate } from 'vike-content-collection'
+import { paginate } from 'vike-content-collection'
 
-const posts = getCollection('blog')
 const page = paginate(posts, { pageSize: 10, currentPage: 2 })
 
-page.items          // entries for this page
-page.currentPage    // 2
-page.totalPages     // total number of pages
-page.totalItems     // total number of entries
-page.hasNextPage    // boolean
+page.items           // entries for this page
+page.currentPage     // 2
+page.totalPages      // total number of pages
+page.totalItems      // total entry count
+page.hasNextPage     // boolean
 page.hasPreviousPage // boolean
 ```
 
-The current page is clamped to valid bounds automatically.
+---
 
-### Git-based last modified date
+### Git last modified
 
-Opt-in feature that populates the `lastModified` field on each entry using `git log`. Enable it in the plugin options:
-
-```ts
-vikeContentCollection({
-  lastModified: true,
-})
-```
-
-Each entry will have `lastModified` set to a `Date` representing the last git commit that touched the file, or `undefined` if git is not available or the file is untracked.
+Populate `lastModified` on each entry from `git log`:
 
 ```ts
-const posts = getCollection('blog')
-posts.forEach(post => {
-  if (post.lastModified) {
-    console.log(`Last updated: ${post.lastModified.toISOString()}`)
-  }
-})
+vikeContentCollection({ lastModified: true })
 ```
+
+```ts
+const post = getCollectionEntry('blog', 'intro')
+post?.lastModified // Date | undefined
+```
+
+Returns `undefined` if git is unavailable or the file is untracked.
+
+---
 
 ### Type generation
 
-The plugin automatically generates a `.vike-content-collection/types.d.ts` declaration file that maps each collection name to its inferred zod schema type. To enable type inference, add the generated directory to your `tsconfig.json`:
+The plugin generates `.vike-content-collection/types.d.ts` automatically on build, dev server start, and HMR. Add it to your `tsconfig.json`:
 
 ```json
 {
@@ -409,91 +433,82 @@ The plugin automatically generates a `.vike-content-collection/types.d.ts` decla
 }
 ```
 
-The declaration file is regenerated on every build and during HMR in development. It supports both the plain zod schema format and the extended `{ schema: ... }` format, so `getCollection()` returns fully typed entries without any manual type annotations.
+This powers full type inference for `getCollection()` and `getCollectionEntry()` -- no manual type annotations needed.
 
-### Via the virtual module
+---
 
-Other Vite plugins or application code can also import collection data through the virtual module:
+### Virtual module
+
+Other Vite plugins or app code can import collection data directly:
 
 ```ts
 import { collections } from 'virtual:content-collection'
 ```
 
-The `collections` object is a record keyed by the directory path of each `+Content.ts`, with each value containing a `type` (`"content"` or `"data"`) and an `entries` array of `{ filePath, slug, metadata, content, computed, lastModified, _isDraft }`.
+`collections` is a record keyed by collection directory path. Each value contains `type` (`"content"` or `"data"`) and an `entries` array.
 
-### Via Vike's pageContext
+---
 
-Because `Content` is registered as a Vike setting through the `meta` system, the schema is available on `pageContext.config.Content` in server-side hooks like `+data.ts`.
+## Plugin Options
+
+```ts
+vikeContentCollection({
+  contentDir: 'pages',
+  contentRoot: 'content',
+  drafts: {
+    field: 'draft',
+    includeDrafts: true,
+  },
+  lastModified: true,
+})
+```
+
+| Option                 | Type      | Default                            | Description                                       |
+| ---------------------- | --------- | ---------------------------------- | ------------------------------------------------- |
+| `contentDir`           | `string`  | `"pages"`                          | Directory to scan for `+Content.ts` config files   |
+| `contentRoot`          | `string`  | same as `contentDir`               | Directory where content/data files live            |
+| `drafts.field`         | `string`  | `"draft"`                          | Metadata field name for draft status               |
+| `drafts.includeDrafts` | `boolean` | `true` in dev, `false` in prod     | Force include or exclude draft entries             |
+| `lastModified`         | `boolean` | `false`                            | Populate `lastModified` from git history           |
 
 ## Schema Validation Errors
 
-When a file's metadata fails validation, the build halts with a detailed error that includes:
-
-- The file path of the offending file
-- The line number within the metadata where the issue was found (for markdown files)
-- The zod error path (e.g. `metadata.name`)
-- The validation message
-
-Example output:
+When metadata fails validation, the build halts with a detailed error:
 
 ```
 ContentCollectionValidationError: [vike-content-collection] Schema validation failed:
   pages/blog/post.md:4 (at "metadata.name"): Expected string, received number
 ```
 
-This applies during both `vite build` and `vite dev` -- the dev server will surface the same errors on file changes via HMR.
-
-## Plugin Options
-
-The plugin factory accepts an optional configuration object:
-
-```ts
-vikeContentCollection({
-  contentDir: 'pages',        // where +Content.ts files are scanned (default: "pages")
-  contentRoot: 'content',     // where content files live (default: same as contentDir)
-  drafts: {
-    field: 'draft',           // metadata field for draft status (default: "draft")
-    includeDrafts: true,      // force include/exclude drafts (default: true in dev, false in prod)
-  },
-  lastModified: true,         // populate lastModified from git (default: false)
-})
-```
-
-| Option                  | Type      | Default              | Description                                                                  |
-| ----------------------- | --------- | -------------------- | ---------------------------------------------------------------------------- |
-| `contentDir`            | `string`  | `"pages"`            | Root directory to scan for `+Content.ts` config files.                       |
-| `contentRoot`           | `string`  | same as `contentDir` | Root directory where content/data files live.                                |
-| `drafts.field`          | `string`  | `"draft"`            | Metadata field name to check for draft status.                            |
-| `drafts.includeDrafts`  | `boolean` | `true` in dev, `false` in prod | Force include/exclude draft entries.                          |
-| `lastModified`          | `boolean` | `false`              | Populate `lastModified` from git history on each entry.                      |
+Errors include the file path, line number, Zod error path, and validation message. This works identically in `vite build` and `vite dev` (surfaced via HMR).
 
 ## How It Works
 
-1. **Scan** -- On `buildStart`, the plugin recursively searches `contentDir` for `+Content.ts` files. Each must export a zod schema (directly or via `{ schema: ... }`).
-2. **Parse** -- For content collections, it collects `.md` files and parses YAML frontmatter into metadata using [gray-matter](https://github.com/jonschlinkert/gray-matter). For data collections, it collects `.json`, `.yaml`/`.yml`, and `.toml` files.
-3. **Validate** -- Each parsed metadata object is validated against the zod schema. On failure, zod error paths are mapped back to specific line numbers in the source file.
-4. **Compute** -- Computed field functions run on each validated entry, producing derived data.
-5. **Filter** -- Draft entries are excluded in production builds.
-6. **Store** -- Validated entries are held in an in-memory store, keyed by collection name.
-7. **References** -- A cross-collection validation pass verifies that all `reference()` fields point to existing slugs.
-8. **Generate types** -- A `.vike-content-collection/types.d.ts` declaration file is emitted, powering the typesafe `getCollection()` function.
-9. **Serve** -- A virtual module (`virtual:content-collection`) exposes the serialized collection data.
-10. **HMR** -- During development, file changes trigger incremental re-processing of only the changed file (not the entire collection), followed by type regeneration and virtual module invalidation.
+1. **Scan** -- finds `+Content.ts` files in `contentDir` on `buildStart`
+2. **Parse** -- extracts YAML frontmatter from `.md` files (via [gray-matter](https://github.com/jonschlinkert/gray-matter)), or reads `.json`/`.yaml`/`.toml` for data collections
+3. **Validate** -- checks each entry against its Zod schema, mapping errors back to source line numbers
+4. **Compute** -- runs computed field functions on validated entries
+5. **Filter** -- excludes draft entries in production
+6. **Store** -- holds entries in memory, keyed by collection name
+7. **References** -- verifies cross-collection `reference()` slugs exist
+8. **Types** -- emits `.vike-content-collection/types.d.ts`
+9. **Serve** -- exposes data through `virtual:content-collection`
+10. **HMR** -- incrementally re-processes changed files, regenerates types, and invalidates the virtual module
 
-## Exported API
+## API Reference
 
 ### Functions
 
 ```ts
 import {
-  vikeContentCollectionPlugin,  // Vite plugin factory
-  getCollection,                // retrieve all entries of a collection
-  getCollectionEntry,           // retrieve specific entries by filter
-  renderEntry,                  // render markdown to HTML
-  extractHeadings,              // extract headings from markdown
-  sortCollection,               // sort entries by a frontmatter key
-  paginate,                     // paginate an array of entries
-  reference,                    // create a cross-collection reference schema
+  vikeContentCollectionPlugin,  // Vite plugin factory (also the default export)
+  getCollection,                // all entries of a collection
+  getCollectionEntry,           // filtered entries
+  renderEntry,                  // markdown -> HTML
+  extractHeadings,              // headings from markdown
+  sortCollection,               // sort by metadata key
+  paginate,                     // paginate entries
+  reference,                    // cross-collection reference schema
 } from 'vike-content-collection'
 ```
 
@@ -515,7 +530,7 @@ import type {
   CollectionEntryFilterInput,
   CollectionEntryPredicate,
   ParsedMarkdown,
-	MetadataLineMap,
+  MetadataLineMap,
   ValidationIssue,
   RenderResult,
   RenderOptions,
@@ -524,28 +539,28 @@ import type {
 } from 'vike-content-collection'
 ```
 
-| Type                             | Description                                                                        |
-| -------------------------------- | ---------------------------------------------------------------------------------- |
-| `ContentCollectionPluginOptions` | Options accepted by the `vikeContentCollection()` factory.                         |
-| `ContentCollectionConfig`        | Shape of the `+Content.ts` export (`{ Content: ZodSchema }`).                     |
-| `ContentCollectionDefinition`    | Extended config object with `schema`, `computed`, `slug`, and `type` fields.       |
-| `ResolvedContentConfig`          | Normalized config after resolving a plain schema or definition object.             |
-| `ComputedFieldInput`             | Input passed to computed field functions (`metadata`, `content`, `filePath`, `slug`). |
-| `SlugInput`                      | Input passed to custom slug functions (`metadata`, `filePath`, `defaultSlug`).     |
-| `CollectionEntry`                | A single validated entry (slug, metadata, content, computed, file path, index).    |
-| `Collection`                     | A full collection (name, type, config path, directory, array of entries).          |
-| `CollectionMap`                  | Augmentable interface mapping collection names to metadata types.                  |
-| `TypedCollectionEntry<T>`        | A collection entry with typed metadata and all entry fields.                       |
-| `CollectionEntryPredicate<T>`    | Predicate function used to filter collection entries.                              |
-| `CollectionEntryFilter<T>`       | A single filter criterion: `string`, `RegExp`, or `CollectionEntryPredicate<T>`.   |
-| `CollectionEntryFilterInput<T>`  | One or more filter criteria (single or array), accepted by `getCollectionEntry()`. |
-| `ParsedMarkdown`                 | Result of parsing a markdown file (metadata, content, line map).                   |
-| `MetadataLineMap`                | Maps metadata key paths to their 1-based line numbers.                             |
-| `ValidationIssue`                | A single validation error with file, line, path, and message.                      |
-| `RenderResult`                   | Result of `renderEntry()`: `{ html: string, headings: Heading[] }`.               |
-| `RenderOptions`                  | Options for `renderEntry()`: custom `remarkPlugins` and `rehypePlugins`.           |
-| `Heading`                        | A single heading: `{ depth: number, text: string, id: string }`.                  |
-| `PaginationResult<T>`            | Result of `paginate()` with `items`, page info, and navigation booleans.           |
+| Type | Description |
+| ---- | ----------- |
+| `ContentCollectionPluginOptions` | Options for `vikeContentCollection()` |
+| `ContentCollectionConfig` | Shape of the `+Content.ts` export |
+| `ContentCollectionDefinition` | Extended config with `schema`, `computed`, `slug`, `type` |
+| `ResolvedContentConfig` | Normalized config after resolving schema or definition |
+| `ComputedFieldInput` | Input to computed field functions |
+| `SlugInput` | Input to custom slug functions |
+| `CollectionEntry` | A single validated entry |
+| `Collection` | A full collection with name, type, config path, and entries |
+| `CollectionMap` | Augmentable interface mapping collection names to types |
+| `TypedCollectionEntry<T>` | Entry with typed metadata |
+| `CollectionEntryFilter<T>` | Single filter: `string`, `RegExp`, or predicate |
+| `CollectionEntryFilterInput<T>` | One or more filters for `getCollectionEntry()` |
+| `CollectionEntryPredicate<T>` | Predicate function for filtering entries |
+| `ParsedMarkdown` | Result of parsing a markdown file |
+| `MetadataLineMap` | Maps metadata key paths to line numbers |
+| `ValidationIssue` | Validation error with file, line, path, and message |
+| `RenderResult` | `{ html: string, headings: Heading[] }` |
+| `RenderOptions` | Custom `remarkPlugins` and `rehypePlugins` |
+| `Heading` | `{ depth: number, text: string, id: string }` |
+| `PaginationResult<T>` | Paginated result with `items`, page info, and navigation |
 
 ## Requirements
 
