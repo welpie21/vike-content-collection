@@ -12,12 +12,12 @@ const VIRTUAL_MODULE_ID = "virtual:content-collection";
 const RESOLVED_VIRTUAL_MODULE_ID = `\0${VIRTUAL_MODULE_ID}`;
 const CONTENT_CONFIG_PATTERN = /\+Content\.(ts|js|mts|mjs)$/;
 
-interface ViteDevServer {
+interface PluginDevServer {
 	moduleGraph: {
-		getModuleById(id: string): unknown;
-		invalidateModule(mod: unknown): void;
+		getModuleById(id: string): any;
+		invalidateModule(mod: any): void;
 	};
-	ssrLoadModule(url: string): Promise<Record<string, unknown>>;
+	ssrLoadModule(url: string): Promise<Record<string, any>>;
 }
 
 export interface ContentCollectionPluginOptions {
@@ -33,7 +33,7 @@ export function vikeContentCollectionPlugin(
 	options: ContentCollectionPluginOptions = {},
 ) {
 	let root: string;
-	let devServer: ViteDevServer | null = null;
+	let devServer: PluginDevServer | null = null;
 	const store = getGlobalStore();
 
 	function getConfigRoot(): string {
@@ -183,7 +183,7 @@ export function vikeContentCollectionPlugin(
 			root = resolvedConfig.root;
 		},
 
-		configureServer(server: ViteDevServer) {
+		configureServer(server: PluginDevServer) {
 			devServer = server;
 		},
 
@@ -204,7 +204,7 @@ export function vikeContentCollectionPlugin(
 			}
 		},
 
-		async handleHotUpdate({ file, server }: { file: string; server: ViteDevServer }) {
+		async handleHotUpdate({ file, server }: { file: string; server: PluginDevServer }) {
 			const isMarkdown = /\.md$/i.test(file);
 			const isContentConfig = CONTENT_CONFIG_PATTERN.test(file);
 
