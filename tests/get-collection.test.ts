@@ -22,6 +22,9 @@ function makeCollection(
 			slug,
 			frontmatter: { title: `Post ${i}`, index: i },
 			content: `Body of post ${i}`,
+			computed: {},
+			lastModified: undefined,
+			_isDraft: false,
 			lineMap: { title: 2 },
 			index,
 		};
@@ -31,6 +34,7 @@ function makeCollection(
 
 	return {
 		name,
+		type: "content" as const,
 		configDir,
 		configPath: `${configDir}/+Content.ts`,
 		markdownDir: configDir,
@@ -113,6 +117,40 @@ describe("getCollection", () => {
 
 		expect(first).not.toBe(second);
 		expect(first).toEqual(second);
+	});
+
+	it("includes computed fields in returned entries", () => {
+		const store = getGlobalStore();
+		const col = makeCollection("blog", "/pages/blog", 1);
+		col.entries[0].computed = { readingTime: 3 };
+		store.set("/pages/blog", col);
+
+		const entries = getCollection("blog");
+
+		expect(entries[0].computed).toEqual({ readingTime: 3 });
+	});
+
+	it("includes lastModified in returned entries", () => {
+		const store = getGlobalStore();
+		const col = makeCollection("blog", "/pages/blog", 1);
+		const date = new Date("2025-01-01T00:00:00Z");
+		col.entries[0].lastModified = date;
+		store.set("/pages/blog", col);
+
+		const entries = getCollection("blog");
+
+		expect(entries[0].lastModified).toEqual(date);
+	});
+
+	it("includes _isDraft in returned entries", () => {
+		const store = getGlobalStore();
+		const col = makeCollection("blog", "/pages/blog", 1);
+		col.entries[0]._isDraft = true;
+		store.set("/pages/blog", col);
+
+		const entries = getCollection("blog");
+
+		expect(entries[0]._isDraft).toBe(true);
 	});
 });
 

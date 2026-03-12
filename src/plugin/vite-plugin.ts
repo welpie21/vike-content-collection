@@ -1,16 +1,27 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { createJiti } from "jiti";
 import type { ZodSchema } from "zod";
+import type {
+	ComputedFieldInput,
+	ContentCollectionDefinition,
+	ResolvedContentConfig,
+	SlugInput,
+} from "../types/index.js";
 import { type CollectionEntry, getGlobalStore } from "./collection-store.js";
-import { ContentCollectionError } from "./errors.js";
-import { generateDeclarationFile } from "./generate-types.js";
-import { parseMarkdownFile } from "./markdown.js";
-import { validateFrontmatter } from "./validation.js";
+import { parseDataFile } from "./data-parser";
+import { ContentCollectionError } from "./errors";
+import { generateDeclarationFile } from "./generate-types";
+import { getLastModified } from "./git";
+import { parseMarkdownFile } from "./markdown";
+import { validateReferences } from "./reference-validator";
+import { validateFrontmatter } from "./validation";
 
 const VIRTUAL_MODULE_ID = "virtual:content-collection";
 const RESOLVED_VIRTUAL_MODULE_ID = `\0${VIRTUAL_MODULE_ID}`;
 const CONTENT_CONFIG_PATTERN = /\+Content\.(ts|js|mts|mjs)$/;
+const MARKDOWN_PATTERN = /\.md$/i;
+const DATA_FILE_PATTERN = /\.(json|ya?ml|toml)$/i;
 
 interface PluginDevServer {
 	moduleGraph: {
@@ -23,11 +34,22 @@ interface PluginDevServer {
 export interface ContentCollectionPluginOptions {
 	/** Directory to scan for +Content.ts files, relative to project root. Defaults to "pages". */
 	contentDir?: string;
-	/** Directory where markdown content files live, relative to project root.
-	 *  When set, the plugin looks for .md files in contentRoot/<collectionName>/
+	/** Directory where content files live, relative to project root.
+	 *  When set, the plugin looks for files in contentRoot/<collectionName>/
 	 *  instead of alongside the +Content.ts file. Defaults to the same as contentDir. */
 	contentRoot?: string;
+	/** Draft filtering options. */
+	drafts?: {
+		/** Frontmatter field name to check for draft status. Defaults to "draft". */
+		field?: string;
+		/** Force include/exclude drafts. Defaults to true in dev, false in production. */
+		includeDrafts?: boolean;
+	};
+	/** Populate lastModified from git history on each entry. Defaults to false. */
+	lastModified?: boolean;
 }
+
+const configCache = new Map<string, ResolvedContentConfig>();
 
 export function vikeContentCollectionPlugin(
 	options: ContentCollectionPluginOptions = {},
@@ -60,7 +82,49 @@ export function vikeContentCollectionPlugin(
 		return collectionName === "." ? mdRoot : join(mdRoot, collectionName);
 	}
 
-	async function loadSchema(configPath: string): Promise<ZodSchema> {
+	function isProduction(): boolean {
+		return !devServer;
+	}
+
+	function shouldIncludeDrafts(): boolean {
+		if (options.drafts?.includeDrafts != null) {
+			return options.drafts.includeDrafts;
+		}
+		return !isProduction();
+	}
+
+	function getDraftField(): string {
+		return options.drafts?.field ?? "draft";
+	}
+
+	function normalizeContentConfig(raw: unknown): ResolvedContentConfig {
+		if (raw && typeof (raw as ZodSchema).safeParse === "function") {
+			return {
+				type: "content",
+				schema: raw as ZodSchema,
+				computed: {},
+				slug: null,
+			};
+		}
+
+		const def = raw as ContentCollectionDefinition;
+		if (!def || !def.schema || typeof def.schema.safeParse !== "function") {
+			throw new Error(
+				"Must export a zod schema via `export const Content` or `export const Content = { schema: z.object(...) }`",
+			);
+		}
+
+		return {
+			type: def.type ?? "content",
+			schema: def.schema,
+			computed: def.computed ?? {},
+			slug: def.slug ?? null,
+		};
+	}
+
+	async function loadContentConfig(
+		configPath: string,
+	): Promise<ResolvedContentConfig> {
 		let mod: Record<string, unknown>;
 
 		if (devServer) {
@@ -70,29 +134,34 @@ export function vikeContentCollectionPlugin(
 			mod = (await jiti.import(configPath)) as Record<string, unknown>;
 		}
 
-		const schema =
+		const raw =
 			mod.Content ??
 			(mod.default as Record<string, unknown> | undefined)?.Content ??
 			mod.default;
 
-		if (!schema || typeof (schema as ZodSchema).safeParse !== "function") {
+		if (!raw) {
 			throw new ContentCollectionError(
 				"Must export a zod schema via `export const Content`",
 				configPath,
 			);
 		}
-		return schema as ZodSchema;
+
+		const config = normalizeContentConfig(raw);
+		configCache.set(configPath, config);
+		return config;
 	}
 
-	function findMarkdownFiles(dir: string): string[] {
+	function findContentFiles(dir: string, type: "content" | "data"): string[] {
 		const files: string[] = [];
 		if (!existsSync(dir)) return files;
+
+		const pattern = type === "data" ? DATA_FILE_PATTERN : MARKDOWN_PATTERN;
 
 		for (const entry of readdirSync(dir, { withFileTypes: true })) {
 			const fullPath = join(dir, entry.name);
 			if (entry.isDirectory()) {
-				files.push(...findMarkdownFiles(fullPath));
-			} else if (entry.isFile() && /\.md$/i.test(entry.name)) {
+				files.push(...findContentFiles(fullPath, type));
+			} else if (entry.isFile() && pattern.test(entry.name)) {
 				files.push(fullPath);
 			}
 		}
@@ -114,40 +183,111 @@ export function vikeContentCollectionPlugin(
 		return configs;
 	}
 
+	function deriveSlug(filePath: string): string {
+		const ext = extname(filePath);
+		return basename(filePath, ext);
+	}
+
+	function computeFields(
+		config: ResolvedContentConfig,
+		input: ComputedFieldInput,
+	): Record<string, unknown> {
+		const result: Record<string, unknown> = {};
+		for (const [key, fn] of Object.entries(config.computed)) {
+			result[key] = fn(input);
+		}
+		return result;
+	}
+
+	function resolveSlug(
+		config: ResolvedContentConfig,
+		filePath: string,
+		frontmatter: Record<string, unknown>,
+	): string {
+		const defaultSlug = deriveSlug(filePath);
+		if (!config.slug) return defaultSlug;
+		const input: SlugInput = { frontmatter, filePath, defaultSlug };
+		return config.slug(input);
+	}
+
+	function buildEntry(
+		filePath: string,
+		config: ResolvedContentConfig,
+		index: Record<string, CollectionEntry>,
+	): CollectionEntry {
+		const raw = readFileSync(filePath, "utf-8");
+
+		let frontmatter: Record<string, unknown>;
+		let content: string;
+		let lineMap: Record<string, number>;
+
+		if (config.type === "data") {
+			const parsed = parseDataFile(raw, filePath);
+			frontmatter = parsed.data;
+			content = "";
+			lineMap = {};
+		} else {
+			const parsed = parseMarkdownFile(raw, filePath);
+			frontmatter = parsed.frontmatter;
+			content = parsed.content;
+			lineMap = parsed.lineMap;
+		}
+
+		const validatedFrontmatter = validateFrontmatter(
+			frontmatter,
+			config.schema,
+			filePath,
+			lineMap,
+		);
+
+		const slug = resolveSlug(config, filePath, validatedFrontmatter);
+		const draftField = getDraftField();
+		const isDraft = !!validatedFrontmatter[draftField];
+
+		const computedInput: ComputedFieldInput = {
+			frontmatter: validatedFrontmatter,
+			content,
+			filePath,
+			slug,
+		};
+		const computed = computeFields(config, computedInput);
+
+		const lm = options.lastModified ? getLastModified(filePath) : undefined;
+
+		return {
+			filePath,
+			slug,
+			frontmatter: validatedFrontmatter,
+			content,
+			computed,
+			lastModified: lm,
+			_isDraft: isDraft,
+			lineMap,
+			index,
+		};
+	}
+
 	async function processCollection(configPath: string): Promise<void> {
 		const configDir = dirname(configPath);
 		const name = deriveCollectionName(configPath);
-		const schema = await loadSchema(configPath);
+		const config = await loadContentConfig(configPath);
 		const mdDir = resolveMarkdownDir(name);
-		const mdFiles = findMarkdownFiles(mdDir);
+		const files = findContentFiles(mdDir, config.type);
 
 		const entries: CollectionEntry[] = [];
 		const index: Record<string, CollectionEntry> = {};
+		const includeDrafts = shouldIncludeDrafts();
 
-		for (const mdFile of mdFiles) {
-			const raw = readFileSync(mdFile, "utf-8");
-			const parsed = parseMarkdownFile(raw, mdFile);
-			const validatedFrontmatter = validateFrontmatter(
-				parsed.frontmatter,
-				schema,
-				mdFile,
-				parsed.lineMap,
-			);
-			const slug = basename(mdFile, ".md");
-			const entry: CollectionEntry = {
-				filePath: mdFile,
-				slug,
-				frontmatter: validatedFrontmatter,
-				content: parsed.content,
-				lineMap: parsed.lineMap,
-				index,
-			};
+		for (const file of files) {
+			const entry = buildEntry(file, config, index);
+			if (!includeDrafts && entry._isDraft) continue;
 			entries.push(entry);
-			index[slug] = entry;
+			index[entry.slug] = entry;
 		}
 
 		store.set(configDir, {
 			name,
+			type: config.type,
 			configDir,
 			configPath,
 			markdownDir: mdDir,
@@ -155,8 +295,49 @@ export function vikeContentCollectionPlugin(
 		});
 	}
 
+	async function processSingleEntry(
+		file: string,
+		collection: {
+			configDir: string;
+			configPath: string;
+			markdownDir: string;
+			name: string;
+			type: "content" | "data";
+		},
+	): Promise<void> {
+		const config = configCache.get(collection.configPath);
+		if (!config) {
+			await processCollection(collection.configPath);
+			return;
+		}
+
+		const existingCollection = store.get(collection.configDir);
+		if (!existingCollection) return;
+
+		const index = Object.fromEntries(
+			existingCollection.entries.map((e) => [e.slug, e]),
+		);
+
+		if (!existsSync(file)) {
+			const slug = deriveSlug(file);
+			store.removeEntry(collection.configDir, slug);
+			return;
+		}
+
+		const entry = buildEntry(file, config, index);
+		const includeDrafts = shouldIncludeDrafts();
+
+		if (!includeDrafts && entry._isDraft) {
+			store.removeEntry(collection.configDir, entry.slug);
+			return;
+		}
+
+		store.updateEntry(collection.configDir, entry);
+	}
+
 	async function scanAndProcess(): Promise<void> {
 		store.clear();
+		configCache.clear();
 		const configFiles = findContentConfigs(getConfigRoot());
 
 		for (const configPath of configFiles) {
@@ -165,6 +346,7 @@ export function vikeContentCollectionPlugin(
 			const markdownDir = resolveMarkdownDir(name);
 			store.set(configDir, {
 				name,
+				type: "content",
 				configDir,
 				configPath,
 				markdownDir,
@@ -185,6 +367,8 @@ export function vikeContentCollectionPlugin(
 				);
 			}
 		}
+
+		validateReferences(store);
 	}
 
 	return {
@@ -223,10 +407,11 @@ export function vikeContentCollectionPlugin(
 			file: string;
 			server: PluginDevServer;
 		}) {
-			const isMarkdown = /\.md$/i.test(file);
+			const isMarkdown = MARKDOWN_PATTERN.test(file);
+			const isDataFile = DATA_FILE_PATTERN.test(file);
 			const isContentConfig = CONTENT_CONFIG_PATTERN.test(file);
 
-			if (!isMarkdown && !isContentConfig) return;
+			if (!isMarkdown && !isDataFile && !isContentConfig) return;
 
 			try {
 				if (isContentConfig) {
@@ -236,17 +421,19 @@ export function vikeContentCollectionPlugin(
 						const markdownDir = resolveMarkdownDir(name);
 						store.set(configDir, {
 							name,
+							type: "content",
 							configDir,
 							configPath: file,
 							markdownDir,
 							entries: [],
 						});
 					}
+					configCache.delete(file);
 					await processCollection(file);
-				} else if (isMarkdown) {
+				} else if (isMarkdown || isDataFile) {
 					for (const collection of store.getAll()) {
 						if (file.startsWith(collection.markdownDir)) {
-							await processCollection(collection.configPath);
+							await processSingleEntry(file, collection);
 							break;
 						}
 					}
@@ -258,6 +445,7 @@ export function vikeContentCollectionPlugin(
 				);
 			}
 
+			validateReferences(store);
 			generateDeclarationFile(store, root);
 
 			const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_MODULE_ID);

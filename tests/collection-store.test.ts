@@ -19,6 +19,9 @@ function makeCollection(
 			slug,
 			frontmatter: { title: `Post ${i}`, index: i },
 			content: `Content of post ${i}`,
+			computed: {},
+			lastModified: undefined,
+			_isDraft: false,
 			lineMap: { title: 2 },
 			index,
 		};
@@ -28,6 +31,7 @@ function makeCollection(
 
 	return {
 		name,
+		type: "content" as const,
 		configDir,
 		configPath: `${configDir}/+Content.ts`,
 		markdownDir: configDir,
@@ -164,6 +168,90 @@ describe("CollectionStore", () => {
 			expect(Object.keys(serialized)).toHaveLength(2);
 			expect(serialized["/pages/blog"].entries).toHaveLength(1);
 			expect(serialized["/pages/docs"].entries).toHaveLength(3);
+		});
+	});
+
+	describe("updateEntry", () => {
+		it("updates an existing entry by slug", () => {
+			store.set("/pages/blog", makeCollection("blog", "/pages/blog", 2));
+			const updated = {
+				filePath: "/pages/blog/post-0.md",
+				slug: "post-0",
+				frontmatter: { title: "Updated Post 0", index: 99 },
+				content: "Updated content",
+				computed: {},
+				lastModified: undefined,
+				_isDraft: false,
+				lineMap: { title: 2 },
+				index: {} as Record<string, any>,
+			};
+
+			store.updateEntry("/pages/blog", updated);
+
+			const collection = store.get("/pages/blog")!;
+			expect(collection.entries).toHaveLength(2);
+			expect(collection.entries[0].frontmatter.title).toBe("Updated Post 0");
+		});
+
+		it("adds a new entry when slug does not exist", () => {
+			store.set("/pages/blog", makeCollection("blog", "/pages/blog", 1));
+			const newEntry = {
+				filePath: "/pages/blog/new-post.md",
+				slug: "new-post",
+				frontmatter: { title: "New Post" },
+				content: "New content",
+				computed: {},
+				lastModified: undefined,
+				_isDraft: false,
+				lineMap: { title: 2 },
+				index: {} as Record<string, any>,
+			};
+
+			store.updateEntry("/pages/blog", newEntry);
+
+			const collection = store.get("/pages/blog")!;
+			expect(collection.entries).toHaveLength(2);
+		});
+
+		it("does nothing when configDir does not exist", () => {
+			const entry = {
+				filePath: "/pages/blog/post.md",
+				slug: "post",
+				frontmatter: {},
+				content: "",
+				computed: {},
+				lastModified: undefined,
+				_isDraft: false,
+				lineMap: {},
+				index: {} as Record<string, any>,
+			};
+			store.updateEntry("/pages/missing", entry);
+			expect(store.getAll()).toHaveLength(0);
+		});
+	});
+
+	describe("removeEntry", () => {
+		it("removes an entry by slug", () => {
+			store.set("/pages/blog", makeCollection("blog", "/pages/blog", 3));
+
+			store.removeEntry("/pages/blog", "post-1");
+
+			const collection = store.get("/pages/blog")!;
+			expect(collection.entries).toHaveLength(2);
+			expect(collection.entries.find((e) => e.slug === "post-1")).toBeUndefined();
+		});
+
+		it("does nothing for non-existent slug", () => {
+			store.set("/pages/blog", makeCollection("blog", "/pages/blog", 2));
+
+			store.removeEntry("/pages/blog", "nonexistent");
+
+			expect(store.get("/pages/blog")!.entries).toHaveLength(2);
+		});
+
+		it("does nothing for non-existent configDir", () => {
+			store.removeEntry("/pages/missing", "post-0");
+			expect(store.getAll()).toHaveLength(0);
 		});
 	});
 });

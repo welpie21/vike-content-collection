@@ -12,6 +12,41 @@ export interface ContentCollectionConfig {
 	Content: ZodSchema;
 }
 
+/** Input passed to computed field functions. */
+export interface ComputedFieldInput {
+	frontmatter: Record<string, unknown>;
+	content: string;
+	filePath: string;
+	slug: string;
+}
+
+/** Input passed to custom slug functions. */
+export interface SlugInput {
+	frontmatter: Record<string, unknown>;
+	filePath: string;
+	defaultSlug: string;
+}
+
+/** Extended config object for +Content.ts that supports computed fields, custom slugs, etc. */
+export interface ContentCollectionDefinition {
+	/** Whether this is a markdown content collection or a data-only collection. Defaults to 'content'. */
+	type?: "content" | "data";
+	/** Zod schema for validating frontmatter (content) or the full data file (data). */
+	schema: ZodSchema;
+	/** Functions that derive additional data from each entry. */
+	computed?: Record<string, (input: ComputedFieldInput) => unknown>;
+	/** Custom slug generation function. */
+	slug?: (input: SlugInput) => string;
+}
+
+/** Resolved config after normalizing a plain schema or definition object. */
+export interface ResolvedContentConfig {
+	type: "content" | "data";
+	schema: ZodSchema;
+	computed: Record<string, (input: ComputedFieldInput) => unknown>;
+	slug: ((input: SlugInput) => string) | null;
+}
+
 /**
  * Augmentable interface mapping collection names to their frontmatter types.
  * The generated declaration file populates this with z.infer<typeof Content>
@@ -25,6 +60,9 @@ export interface TypedCollectionEntry<T> {
 	slug: string;
 	frontmatter: T;
 	content: string;
+	computed: Record<string, unknown>;
+	lastModified: Date | undefined;
+	_isDraft: boolean;
 	index: Record<string, TypedCollectionEntry<T>>;
 }
 

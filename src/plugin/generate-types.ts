@@ -25,10 +25,12 @@ export function generateDeclarationFile(
 	writeFileSync(outFile, content);
 }
 
+const RESOLVE_SCHEMA_HELPER = `type _ResolveSchema<C> = C extends { schema: infer S } ? S : C\n`;
+
 const RESOLVE_CONTENT_HELPER =
-	`type _ResolveContent<M> = M extends { Content: infer C } ? C\n` +
-	`  : M extends { default: { Content: infer C } } ? C\n` +
-	`  : M extends { default: infer D } ? D\n` +
+	`type _ResolveContent<M> = M extends { Content: infer C } ? _ResolveSchema<C>\n` +
+	`  : M extends { default: { Content: infer C } } ? _ResolveSchema<C>\n` +
+	`  : M extends { default: infer D } ? _ResolveSchema<D>\n` +
 	`  : never\n`;
 
 export function buildDeclarationContent(
@@ -67,6 +69,7 @@ export function buildDeclarationContent(
 		`import type { z } from 'zod'\n` +
 		imports.join("\n") +
 		"\n\n" +
+		RESOLVE_SCHEMA_HELPER +
 		RESOLVE_CONTENT_HELPER +
 		"\n" +
 		`declare module 'vike-content-collection' {\n` +

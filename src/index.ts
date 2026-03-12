@@ -6,6 +6,11 @@ export {
 	getCollection,
 	getCollectionEntry,
 } from "./runtime/get-collection.js";
+export type { PaginationResult } from "./runtime/helpers.js";
+export { paginate, sortCollection } from "./runtime/helpers.js";
+export { reference } from "./runtime/reference.js";
+export type { Heading, RenderOptions, RenderResult } from "./runtime/render.js";
+export { extractHeadings, renderEntry } from "./runtime/render.js";
 export type {
 	Collection,
 	CollectionEntry,
@@ -13,10 +18,14 @@ export type {
 	CollectionEntryFilterInput,
 	CollectionEntryPredicate,
 	CollectionMap,
+	ComputedFieldInput,
 	ContentCollectionConfig,
+	ContentCollectionDefinition,
 	ContentCollectionPluginOptions,
 	FrontmatterLineMap,
 	ParsedMarkdown,
+	ResolvedContentConfig,
+	SlugInput,
 	TypedCollectionEntry,
 	ValidationIssue,
 } from "./types/index.js";

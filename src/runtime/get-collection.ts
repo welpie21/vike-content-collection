@@ -35,6 +35,9 @@ function buildTypedIndex<T>(
 			slug: entry.slug,
 			frontmatter: entry.frontmatter as T,
 			content: entry.content,
+			computed: entry.computed,
+			lastModified: entry.lastModified,
+			_isDraft: entry._isDraft,
 			index: typedIndex,
 		};
 	}
