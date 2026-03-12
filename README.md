@@ -104,11 +104,19 @@ import { getCollection } from 'vike-content-collection'
 
 export function data() {
   const posts = getCollection('blog')
-  // posts is fully typed: { filePath, frontmatter, content }[]
+  // posts is fully typed: { filePath, slug, frontmatter, content, index }[]
   // frontmatter type is inferred from the zod schema in +Content.ts
   return { posts }
 }
 ```
+
+Each entry includes:
+
+- `filePath` -- absolute path to the markdown file.
+- `slug` -- unique identifier derived from the filename (without `.md`).
+- `frontmatter` -- validated and typed frontmatter data.
+- `content` -- raw markdown body (without frontmatter).
+- `index` -- a lookup map of all sibling entries in the same collection, keyed by slug.
 
 The collection name is derived from the directory structure. For example:
 
@@ -116,6 +124,44 @@ The collection name is derived from the directory structure. For example:
 | ----------------------------------- | ------------------------ |
 | `pages/blog/+Content.ts`           | `"blog"`                 |
 | `pages/docs/guides/+Content.ts`    | `"docs/guides"`          |
+
+#### Via `getCollectionEntry()`
+
+Use `getCollectionEntry()` to retrieve specific entries from a collection. The second argument accepts several filter types:
+
+**By slug** -- pass a string to look up a single entry. Returns the entry or `undefined`:
+
+```ts
+import { getCollectionEntry } from 'vike-content-collection'
+
+const post = getCollectionEntry('blog', 'getting-started')
+// TypedCollectionEntry | undefined
+```
+
+**By regex** -- pass a `RegExp` to match slugs. Returns an array of matching entries:
+
+```ts
+const tutorials = getCollectionEntry('blog', /^tutorial-/)
+// TypedCollectionEntry[]
+```
+
+**By predicate** -- pass a function to filter entries. Returns an array of matching entries:
+
+```ts
+const published = getCollectionEntry('blog', (entry) => !entry.frontmatter.draft)
+// TypedCollectionEntry[]
+```
+
+**By array** -- pass an array of any of the above (OR semantics). Returns an array of entries matching any filter:
+
+```ts
+const selected = getCollectionEntry('blog', [
+  'intro',
+  /^tutorial-/,
+  (entry) => entry.frontmatter.featured === true,
+])
+// TypedCollectionEntry[]
+```
 
 #### Type generation
 
@@ -140,7 +186,7 @@ Other Vite plugins or application code can also import collection data through t
 import { collections } from 'virtual:content-collection'
 ```
 
-The `collections` object is a record keyed by the directory path of each `+Content.ts`, with each value containing an `entries` array of `{ filePath, frontmatter, content }`.
+The `collections` object is a record keyed by the directory path of each `+Content.ts`, with each value containing an `entries` array of `{ filePath, slug, frontmatter, content }`.
 
 #### Via Vike's pageContext
 
@@ -195,7 +241,7 @@ vikeContentCollection({
 The package exports the following TypeScript types from the main entry point:
 
 ```ts
-import { getCollection } from 'vike-content-collection'
+import { getCollection, getCollectionEntry } from 'vike-content-collection'
 
 import type {
   ContentCollectionPluginOptions,
@@ -204,23 +250,29 @@ import type {
   Collection,
   CollectionMap,
   TypedCollectionEntry,
+  CollectionEntryFilter,
+  CollectionEntryFilterInput,
+  CollectionEntryPredicate,
   ParsedMarkdown,
   FrontmatterLineMap,
   ValidationIssue,
 } from 'vike-content-collection'
 ```
 
-| Type                             | Description                                                                   |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| `ContentCollectionPluginOptions` | Options accepted by the `vikeContentCollection()` factory.                    |
-| `ContentCollectionConfig`        | Shape of the `+Content.ts` export (`{ Content: ZodSchema }`).                |
-| `CollectionEntry`                | A single validated markdown entry (frontmatter, content, file path).          |
-| `Collection`                     | A full collection (name, config path, directory, array of entries).           |
-| `CollectionMap`                  | Augmentable interface mapping collection names to frontmatter types.          |
-| `TypedCollectionEntry<T>`        | A collection entry with typed frontmatter, returned by `getCollection()`.    |
-| `ParsedMarkdown`                 | Result of parsing a markdown file (frontmatter, content, line map).           |
-| `FrontmatterLineMap`             | Maps frontmatter key paths to their 1-based line numbers.                     |
-| `ValidationIssue`                | A single validation error with file, line, path, and message.                 |
+| Type                             | Description                                                                        |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| `ContentCollectionPluginOptions` | Options accepted by the `vikeContentCollection()` factory.                         |
+| `ContentCollectionConfig`        | Shape of the `+Content.ts` export (`{ Content: ZodSchema }`).                      |
+| `CollectionEntry`                | A single validated markdown entry (slug, frontmatter, content, file path, index).   |
+| `Collection`                     | A full collection (name, config path, directory, array of entries).                 |
+| `CollectionMap`                  | Augmentable interface mapping collection names to frontmatter types.                |
+| `TypedCollectionEntry<T>`        | A collection entry with typed frontmatter, slug, and index.                        |
+| `CollectionEntryPredicate<T>`    | Predicate function used to filter collection entries.                               |
+| `CollectionEntryFilter<T>`       | A single filter criterion: `string`, `RegExp`, or `CollectionEntryPredicate<T>`.   |
+| `CollectionEntryFilterInput<T>`  | One or more filter criteria (single or array), accepted by `getCollectionEntry()`. |
+| `ParsedMarkdown`                 | Result of parsing a markdown file (frontmatter, content, line map).                 |
+| `FrontmatterLineMap`             | Maps frontmatter key paths to their 1-based line numbers.                           |
+| `ValidationIssue`                | A single validation error with file, line, path, and message.                       |
 
 ## Requirements
 
