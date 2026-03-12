@@ -277,7 +277,7 @@ import type {
 ## Requirements
 
 - Node.js >= 18
-- Vite >= 6.0.0
+- Vite >= 7.0.0
 - Vike >= 0.4.250
 - Zod >= 3.0.0
 
