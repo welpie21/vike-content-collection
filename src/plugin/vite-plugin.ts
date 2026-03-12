@@ -9,13 +9,13 @@ import type {
 	SlugInput,
 } from "../types/index.js";
 import { type CollectionEntry, getGlobalStore } from "./collection-store.js";
-import { parseDataFile } from "./data-parser";
-import { ContentCollectionError } from "./errors";
-import { generateDeclarationFile } from "./generate-types";
-import { getLastModified } from "./git";
-import { parseMarkdownFile } from "./markdown";
-import { validateReferences } from "./reference-validator";
-import { validateMetadata } from "./validation";
+import { parseDataFile } from "./data-parser.js";
+import { ContentCollectionError } from "./errors.js";
+import { generateDeclarationFile } from "./generate-types.js";
+import { getLastModified } from "./git.js";
+import { parseMarkdownFile } from "./markdown.js";
+import { validateReferences } from "./reference-validator.js";
+import { validateMetadata } from "./validation.js";
 
 const VIRTUAL_MODULE_ID = "virtual:content-collection";
 const RESOLVED_VIRTUAL_MODULE_ID = `\0${VIRTUAL_MODULE_ID}`;
