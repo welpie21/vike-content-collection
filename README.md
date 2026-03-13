@@ -141,6 +141,7 @@ export const Content = {
     readingTime: ({ content }) => Math.ceil(content.split(/\s+/).length / 200),
   },
   slug: ({ metadata, defaultSlug }) => metadata.permalink ?? defaultSlug,
+  contentPath: 'articles', // fetch files from <contentRoot>/articles/ instead of the default
 }
 ```
 
@@ -580,7 +581,7 @@ import type {
 | ---- | ----------- |
 | `ContentCollectionPluginOptions` | Options for `vikeContentCollection()` |
 | `ContentCollectionConfig` | Shape of the `+Content.ts` export |
-| `ContentCollectionDefinition` | Extended config with `schema`, `computed`, `slug`, `type` |
+| `ContentCollectionDefinition` | Extended config with `schema`, `computed`, `slug`, `type`, `contentPath` |
 | `ResolvedContentConfig` | Normalized config after resolving schema or definition |
 | `ComputedFieldInput` | Input to computed field functions |
 | `SlugInput` | Input to custom slug functions |
