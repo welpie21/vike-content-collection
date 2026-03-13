@@ -44,6 +44,12 @@ interface PluginDevServer {
 		invalidateModule(mod: any): void;
 	};
 	ssrLoadModule(url: string): Promise<Record<string, any>>;
+	hot: {
+		send(payload: { type: string; path?: string; [key: string]: unknown }): void;
+	};
+	watcher: {
+		on(event: string, handler: (path: string) => void): void;
+	};
 }
 
 export interface ContentCollectionPluginOptions {
@@ -102,6 +108,19 @@ export function vikeContentCollectionPlugin(
 			return join(mdRoot, contentPath);
 		}
 		return collectionName === "." ? mdRoot : join(mdRoot, collectionName);
+	}
+
+	function isInsideDir(filePath: string, dir: string): boolean {
+		return filePath === dir || filePath.startsWith(`${dir}/`);
+	}
+
+	function findCollectionForFile(file: string) {
+		for (const collection of store.getAll()) {
+			if (isInsideDir(file, collection.markdownDir)) {
+				return collection;
+			}
+		}
+		return null;
 	}
 
 	function isProduction(): boolean {
@@ -436,6 +455,14 @@ export function vikeContentCollectionPlugin(
 		validateReferenceFields(store, schemaMap);
 	}
 
+	function invalidateVirtualModule(server: PluginDevServer): void {
+		const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_MODULE_ID);
+		if (mod) {
+			server.moduleGraph.invalidateModule(mod);
+		}
+		server.hot.send({ type: "full-reload" });
+	}
+
 	return {
 		name: "vike-content-collection",
 		enforce: "pre" as const,
@@ -446,6 +473,36 @@ export function vikeContentCollectionPlugin(
 
 		configureServer(server: PluginDevServer) {
 			devServer = server;
+
+			function handleFileChange(file: string) {
+				const isContentFile =
+					MARKDOWN_PATTERN.test(file) || DATA_FILE_PATTERN.test(file);
+				const isConfig = CONTENT_CONFIG_PATTERN.test(file);
+				if (!isContentFile && !isConfig) return;
+
+				const collection = isContentFile ? findCollectionForFile(file) : null;
+				if (isContentFile && !collection) return;
+
+				(async () => {
+					try {
+						if (isConfig) {
+							await processCollection(file);
+						} else if (collection) {
+							await processSingleEntry(file, collection);
+						}
+					} catch (error) {
+						console.error(
+							`[vike-content-collection] Failed to process "${file}":`,
+							error instanceof Error ? error.message : error,
+						);
+					}
+					await generateDeclarationFile(store, root);
+					invalidateVirtualModule(server);
+				})();
+			}
+
+			server.watcher.on("add", handleFileChange);
+			server.watcher.on("unlink", handleFileChange);
 		},
 
 		async buildStart() {
@@ -506,11 +563,9 @@ export function vikeContentCollectionPlugin(
 					configCache.delete(file);
 					await processCollection(file);
 				} else if (isMarkdown || isDataFile) {
-					for (const collection of store.getAll()) {
-						if (file.startsWith(collection.markdownDir)) {
-							await processSingleEntry(file, collection);
-							break;
-						}
+					const collection = findCollectionForFile(file);
+					if (collection) {
+						await processSingleEntry(file, collection);
 					}
 				}
 			} catch (error) {
@@ -527,11 +582,8 @@ export function vikeContentCollectionPlugin(
 			validateReferenceFields(store, schemaMap);
 			await generateDeclarationFile(store, root);
 
-			const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_MODULE_ID);
-			if (mod) {
-				server.moduleGraph.invalidateModule(mod);
-				return [mod];
-			}
+			invalidateVirtualModule(server);
+			return [];
 		},
 	};
 }
