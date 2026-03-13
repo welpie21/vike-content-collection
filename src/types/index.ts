@@ -37,6 +37,9 @@ export interface ContentCollectionDefinition {
 	computed?: Record<string, (input: ComputedFieldInput) => unknown>;
 	/** Custom slug generation function. */
 	slug?: (input: SlugInput) => string;
+	/** Override the folder inside the content root to fetch files from.
+	 *  By default, the collection name (derived from the +Content.ts path) is used. */
+	contentPath?: string;
 }
 
 /** Resolved config after normalizing a plain schema or definition object. */
@@ -45,6 +48,7 @@ export interface ResolvedContentConfig {
 	schema: ZodSchema;
 	computed: Record<string, (input: ComputedFieldInput) => unknown>;
 	slug: ((input: SlugInput) => string) | null;
+	contentPath: string | null;
 }
 
 /**

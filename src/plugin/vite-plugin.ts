@@ -77,8 +77,14 @@ export function vikeContentCollectionPlugin(
 		return name || ".";
 	}
 
-	function resolveMarkdownDir(collectionName: string): string {
+	function resolveMarkdownDir(
+		collectionName: string,
+		contentPath?: string | null,
+	): string {
 		const mdRoot = getMarkdownRoot();
+		if (contentPath) {
+			return join(mdRoot, contentPath);
+		}
 		return collectionName === "." ? mdRoot : join(mdRoot, collectionName);
 	}
 
@@ -104,6 +110,7 @@ export function vikeContentCollectionPlugin(
 				schema: raw as ZodSchema,
 				computed: {},
 				slug: null,
+				contentPath: null,
 			};
 		}
 
@@ -119,6 +126,7 @@ export function vikeContentCollectionPlugin(
 			schema: def.schema,
 			computed: def.computed ?? {},
 			slug: def.slug ?? null,
+			contentPath: def.contentPath ?? null,
 		};
 	}
 
@@ -271,7 +279,7 @@ export function vikeContentCollectionPlugin(
 		const configDir = dirname(configPath);
 		const name = deriveCollectionName(configPath);
 		const config = await loadContentConfig(configPath);
-		const mdDir = resolveMarkdownDir(name);
+		const mdDir = resolveMarkdownDir(name, config.contentPath);
 		const files = findContentFiles(mdDir, config.type);
 
 		const entries: CollectionEntry[] = [];
