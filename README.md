@@ -194,6 +194,16 @@ vikeContentCollection({ contentRoot: 'content' })
 
 With this config, a collection defined at `pages/blog/+Content.ts` loads files from `content/blog/`.
 
+You can also override the content folder on a per-collection basis using `contentPath` in the extended config:
+
+```ts
+// pages/blog/+Content.ts
+export const Content = {
+  schema: z.object({ title: z.string() }),
+  contentPath: 'articles', // loads from content/articles/ instead of content/blog/
+}
+```
+
 ---
 
 ### Querying collections

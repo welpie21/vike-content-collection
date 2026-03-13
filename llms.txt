@@ -30,7 +30,7 @@ Config export from `vike-content-collection/config`:
 ## Key Concepts
 
 - `vike-content-collection` must be listed in `ssr.external` in `vite.config.ts` so Vite does not bundle it during SSR
-- A `+Content.ts` file defines a collection by exporting a Zod schema (or `{ schema, computed?, slug?, type? }`)
+- A `+Content.ts` file defines a collection by exporting a Zod schema (or `{ schema, computed?, slug?, type?, contentPath? }`)
 - Collection names are derived from directory paths (e.g. `pages/blog/+Content.ts` → `"blog"`)
 - Content collections (default): `.md` and `.mdx` files with YAML frontmatter validated against the schema
 - Data collections (`type: 'data'`): `.json`, `.yaml`/`.yml`, `.toml` files validated against the schema
@@ -42,6 +42,7 @@ Config export from `vike-content-collection/config`:
 
 - `contentDir` (string, default `"pages"`) -- directory to scan for `+Content.ts` files
 - `contentRoot` (string, default same as contentDir) -- directory where content/data files live
+- Per-collection `contentPath` (string, in +Content.ts) -- override the folder inside the content root for a specific collection
 - `drafts.field` (string, default `"draft"`) -- metadata field for draft status
 - `drafts.includeDrafts` (boolean, default true in dev / false in prod) -- force include/exclude drafts
 - `lastModified` (boolean, default false) -- populate lastModified from git history

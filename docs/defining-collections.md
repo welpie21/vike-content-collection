@@ -42,17 +42,20 @@ export const Content = {
   },
 
   slug: ({ metadata, defaultSlug }) => metadata.permalink ?? defaultSlug,
+
+  contentPath: 'articles', // fetch files from <contentRoot>/articles/ instead of <contentRoot>/blog/
 }
 ```
 
 The extended config supports these fields:
 
-| Field      | Type       | Description                                              |
-| ---------- | ---------- | -------------------------------------------------------- |
-| `schema`   | `ZodSchema` | **Required.** Zod schema for validating frontmatter     |
-| `type`     | `'content' \| 'data'` | Collection type (default: `'content'`)       |
-| `computed` | `Record<string, Function>` | Functions that derive extra data per entry |
-| `slug`     | `Function` | Custom slug generation                                   |
+| Field         | Type       | Description                                              |
+| ------------- | ---------- | -------------------------------------------------------- |
+| `schema`      | `ZodSchema` | **Required.** Zod schema for validating frontmatter     |
+| `type`        | `'content' \| 'data'` | Collection type (default: `'content'`)       |
+| `computed`    | `Record<string, Function>` | Functions that derive extra data per entry |
+| `slug`        | `Function` | Custom slug generation                                   |
+| `contentPath` | `string`   | Override the folder inside the content root to fetch files from |
 
 See [Computed fields](./advanced-features.md#computed-fields) and [Custom slugs](./advanced-features.md#custom-slugs) for details.
 
@@ -183,6 +186,31 @@ By default, the plugin scans `pages/` for `+Content.ts` files. Change this with 
 ```ts
 vikeContentCollection({ contentDir: 'src/pages' })
 ```
+
+### Per-collection content path
+
+You can also override the content folder on a per-collection basis using `contentPath` in the extended config. This takes precedence over the default collection-name-based folder:
+
+```ts
+// pages/blog/+Content.ts
+export const Content = {
+  schema: z.object({ title: z.string() }),
+  contentPath: 'articles',
+}
+```
+
+With `contentRoot: 'content'`, this collection fetches files from `content/articles/` instead of `content/blog/`:
+
+```
+pages/blog/
+└── +Content.ts          # schema definition (contentPath: 'articles')
+
+content/articles/        # files are loaded from here
+├── hello-world.md
+└── another-post.md
+```
+
+Without a `contentRoot`, files are loaded from `pages/articles/` instead.
 
 ## Schema validation errors
 

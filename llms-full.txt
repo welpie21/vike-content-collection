@@ -263,6 +263,8 @@ export const Content = {
   },
 
   slug: ({ metadata, defaultSlug }) => metadata.permalink ?? defaultSlug,
+
+  contentPath: 'articles', // fetch files from <contentRoot>/articles/ instead of <contentRoot>/blog/
 }
 ```
 
@@ -272,6 +274,7 @@ The extended config supports these fields:
 - type ('content' | 'data') -- Collection type (default: 'content').
 - computed (Record<string, Function>) -- Functions that derive extra data per entry.
 - slug (Function) -- Custom slug generation.
+- contentPath (string) -- Override the folder inside the content root to fetch files from.
 
 ### Export styles
 
@@ -396,6 +399,20 @@ By default, the plugin scans pages/ for +Content.ts files. Change this with cont
 ```ts
 vikeContentCollection({ contentDir: 'src/pages' })
 ```
+
+### Per-collection content path
+
+Override the content folder for a specific collection using contentPath in the extended config:
+
+```ts
+// pages/blog/+Content.ts
+export const Content = {
+  schema: z.object({ title: z.string() }),
+  contentPath: 'articles',
+}
+```
+
+With contentRoot: 'content', this collection fetches files from content/articles/ instead of content/blog/. Without a contentRoot, files are loaded from pages/articles/ instead.
 
 ## Schema validation errors
 
@@ -1172,7 +1189,7 @@ Exported from 'vike-content-collection':
 
 - ContentCollectionPluginOptions -- Options for vikeContentCollection()
 - ContentCollectionConfig -- Shape of the +Content.ts export
-- ContentCollectionDefinition -- Extended config with schema, computed, slug, type
+- ContentCollectionDefinition -- Extended config with schema, computed, slug, type, contentPath
 - ResolvedContentConfig -- Normalized config after resolving schema or definition
 - ComputedFieldInput -- Input to computed field functions
 - SlugInput -- Input to custom slug functions
