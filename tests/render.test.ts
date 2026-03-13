@@ -1,6 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { extractHeadings, renderEntry } from "../src/runtime/render";
-import type { ContentRenderer, TypedCollectionEntry } from "../src/types/index";
+import {
+	buildTocTree,
+	extractHeadings,
+	renderEntry,
+} from "../src/runtime/render";
+import type {
+	ContentRenderer,
+	Heading,
+	TypedCollectionEntry,
+} from "../src/types/index";
 
 function makeEntry(
 	content: string,
@@ -173,5 +181,99 @@ describe("extractHeadings", () => {
 
 		expect(headings).toHaveLength(1);
 		expect(headings[0].text).toBe("Bold heading");
+	});
+});
+
+describe("buildTocTree", () => {
+	it("returns empty array for empty headings", () => {
+		const tree = buildTocTree([]);
+		expect(tree).toEqual([]);
+	});
+
+	it("returns flat nodes for same-depth headings", () => {
+		const headings: Heading[] = [
+			{ depth: 2, text: "A", id: "a" },
+			{ depth: 2, text: "B", id: "b" },
+			{ depth: 2, text: "C", id: "c" },
+		];
+
+		const tree = buildTocTree(headings);
+
+		expect(tree).toHaveLength(3);
+		expect(tree[0].text).toBe("A");
+		expect(tree[0].children).toEqual([]);
+		expect(tree[1].text).toBe("B");
+		expect(tree[2].text).toBe("C");
+	});
+
+	it("nests deeper headings as children", () => {
+		const headings: Heading[] = [
+			{ depth: 2, text: "Parent", id: "parent" },
+			{ depth: 3, text: "Child", id: "child" },
+		];
+
+		const tree = buildTocTree(headings);
+
+		expect(tree).toHaveLength(1);
+		expect(tree[0].text).toBe("Parent");
+		expect(tree[0].children).toHaveLength(1);
+		expect(tree[0].children[0].text).toBe("Child");
+	});
+
+	it("builds a multi-level tree", () => {
+		const headings: Heading[] = [
+			{ depth: 1, text: "H1", id: "h1" },
+			{ depth: 2, text: "H2a", id: "h2a" },
+			{ depth: 3, text: "H3", id: "h3" },
+			{ depth: 2, text: "H2b", id: "h2b" },
+		];
+
+		const tree = buildTocTree(headings);
+
+		expect(tree).toHaveLength(1);
+		expect(tree[0].text).toBe("H1");
+		expect(tree[0].children).toHaveLength(2);
+		expect(tree[0].children[0].text).toBe("H2a");
+		expect(tree[0].children[0].children).toHaveLength(1);
+		expect(tree[0].children[0].children[0].text).toBe("H3");
+		expect(tree[0].children[1].text).toBe("H2b");
+		expect(tree[0].children[1].children).toEqual([]);
+	});
+
+	it("handles sibling headings after nested children", () => {
+		const headings: Heading[] = [
+			{ depth: 2, text: "First", id: "first" },
+			{ depth: 3, text: "Nested", id: "nested" },
+			{ depth: 2, text: "Second", id: "second" },
+		];
+
+		const tree = buildTocTree(headings);
+
+		expect(tree).toHaveLength(2);
+		expect(tree[0].children).toHaveLength(1);
+		expect(tree[1].text).toBe("Second");
+		expect(tree[1].children).toEqual([]);
+	});
+
+	it("handles depth jumps (e.g. h2 directly to h4)", () => {
+		const headings: Heading[] = [
+			{ depth: 2, text: "H2", id: "h2" },
+			{ depth: 4, text: "H4", id: "h4" },
+		];
+
+		const tree = buildTocTree(headings);
+
+		expect(tree).toHaveLength(1);
+		expect(tree[0].children).toHaveLength(1);
+		expect(tree[0].children[0].text).toBe("H4");
+	});
+
+	it("preserves id and depth on nodes", () => {
+		const headings: Heading[] = [{ depth: 2, text: "Section", id: "section" }];
+
+		const tree = buildTocTree(headings);
+
+		expect(tree[0].depth).toBe(2);
+		expect(tree[0].id).toBe("section");
 	});
 });

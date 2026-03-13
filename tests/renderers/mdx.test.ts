@@ -94,9 +94,7 @@ describe("createMdxRenderer", () => {
 				if (typeof type === "function") {
 					return type(props);
 				}
-				const inner = Array.isArray(children)
-					? children.join("")
-					: children;
+				const inner = Array.isArray(children) ? children.join("") : children;
 				return `<${type}${attrs}>${inner}</${type}>`;
 			}
 			return {
@@ -150,7 +148,8 @@ describe("createMdxRenderer", () => {
 					...runtime,
 					renderToHtml: (Component: any) => Component({}),
 					components: {
-						Alert: ({ children }: any) => `<div class="alert">${children}</div>`,
+						Alert: ({ children }: any) =>
+							`<div class="alert">${children}</div>`,
 					},
 				},
 			});
@@ -181,7 +180,7 @@ describe("createMdxRenderer", () => {
 				remarkPlugins: [capturePlugin],
 			});
 
-			const mdx = '# Hello\n\nSome text.';
+			const mdx = "# Hello\n\nSome text.";
 			await renderer.render(mdx);
 
 			expect(true).toBe(true);

@@ -1,11 +1,28 @@
-import { describe, expect, it } from "bun:test";
-import { paginate, sortCollection } from "../src/runtime/helpers";
+import { beforeEach, describe, expect, it } from "bun:test";
+import {
+	type Collection,
+	getGlobalStore,
+	resetGlobalStore,
+} from "../src/plugin/collection-store";
+import {
+	groupBy,
+	mergeCollections,
+	paginate,
+	sortCollection,
+	uniqueValues,
+} from "../src/runtime/helpers";
 import type { TypedCollectionEntry } from "../src/types/index";
 
 interface TestMetadata {
 	title: string;
 	date: Date;
 	order: number;
+}
+
+interface TaggedMetadata {
+	title: string;
+	tags: string[];
+	category?: string;
 }
 
 function makeEntries(count: number): TypedCollectionEntry<TestMetadata>[] {
@@ -160,5 +177,223 @@ describe("paginate", () => {
 		const last = paginate(entries, { pageSize: 3, currentPage: 4 });
 		expect(last.hasPreviousPage).toBe(true);
 		expect(last.hasNextPage).toBe(false);
+	});
+});
+
+function makeTaggedEntries(
+	items: Partial<TaggedMetadata>[],
+): TypedCollectionEntry<TaggedMetadata>[] {
+	const index: Record<string, TypedCollectionEntry<TaggedMetadata>> = {};
+	return items.map((meta, i) => {
+		const entry: TypedCollectionEntry<TaggedMetadata> = {
+			filePath: `/pages/blog/post-${i}.md`,
+			slug: `post-${i}`,
+			metadata: {
+				title: meta.title ?? `Post ${i}`,
+				tags: meta.tags ?? [],
+				category: meta.category,
+			},
+			content: `Body ${i}`,
+			computed: {},
+			lastModified: undefined,
+			_isDraft: false,
+			index,
+		};
+		index[entry.slug] = entry;
+		return entry;
+	});
+}
+
+describe("groupBy", () => {
+	it("groups entries by a scalar metadata key", () => {
+		const entries = makeTaggedEntries([
+			{ category: "tutorial" },
+			{ category: "tutorial" },
+			{ category: "guide" },
+		]);
+
+		const groups = groupBy(entries, "category");
+
+		expect(groups.size).toBe(2);
+		expect(groups.get("tutorial")).toHaveLength(2);
+		expect(groups.get("guide")).toHaveLength(1);
+	});
+
+	it("groups entries by an array metadata key", () => {
+		const entries = makeTaggedEntries([
+			{ tags: ["js", "react"] },
+			{ tags: ["js", "vue"] },
+			{ tags: ["python"] },
+		]);
+
+		const groups = groupBy(entries, "tags");
+
+		expect(groups.size).toBe(4);
+		expect(groups.get("js")).toHaveLength(2);
+		expect(groups.get("react")).toHaveLength(1);
+		expect(groups.get("vue")).toHaveLength(1);
+		expect(groups.get("python")).toHaveLength(1);
+	});
+
+	it("skips entries where key is undefined", () => {
+		const entries = makeTaggedEntries([
+			{ category: "tutorial" },
+			{ category: undefined },
+		]);
+
+		const groups = groupBy(entries, "category");
+
+		expect(groups.size).toBe(1);
+		expect(groups.get("tutorial")).toHaveLength(1);
+	});
+
+	it("handles empty entries array", () => {
+		const groups = groupBy<TaggedMetadata>([], "tags");
+
+		expect(groups.size).toBe(0);
+	});
+
+	it("handles entries with empty array values", () => {
+		const entries = makeTaggedEntries([{ tags: [] }, { tags: ["js"] }]);
+
+		const groups = groupBy(entries, "tags");
+
+		expect(groups.size).toBe(1);
+		expect(groups.get("js")).toHaveLength(1);
+	});
+
+	it("places the same entry in multiple groups for array fields", () => {
+		const entries = makeTaggedEntries([{ tags: ["a", "b", "c"] }]);
+
+		const groups = groupBy(entries, "tags");
+
+		expect(groups.size).toBe(3);
+		expect(groups.get("a")?.[0].slug).toBe("post-0");
+		expect(groups.get("b")?.[0].slug).toBe("post-0");
+		expect(groups.get("c")?.[0].slug).toBe("post-0");
+	});
+});
+
+function makeStoreCollection(
+	name: string,
+	configDir: string,
+	entryCount: number,
+): Collection {
+	const index: Record<string, Collection["entries"][number]> = {};
+	const entries = Array.from({ length: entryCount }, (_, i) => {
+		const slug = `entry-${i}`;
+		const entry = {
+			filePath: `${configDir}/${slug}.md`,
+			slug,
+			metadata: { title: `Entry ${i}` },
+			content: `Body ${i}`,
+			computed: {},
+			lastModified: undefined,
+			_isDraft: false,
+			lineMap: { title: 2 },
+			index,
+		};
+		index[slug] = entry;
+		return entry;
+	});
+
+	return {
+		name,
+		type: "content" as const,
+		configDir,
+		configPath: `${configDir}/+Content.ts`,
+		markdownDir: configDir,
+		entries,
+	};
+}
+
+describe("uniqueValues", () => {
+	it("extracts unique scalar values", () => {
+		const entries = makeTaggedEntries([
+			{ category: "tutorial" },
+			{ category: "guide" },
+			{ category: "tutorial" },
+		]);
+
+		const values = uniqueValues(entries, "category");
+
+		expect(values).toEqual(["guide", "tutorial"]);
+	});
+
+	it("flattens array values", () => {
+		const entries = makeTaggedEntries([
+			{ tags: ["js", "react"] },
+			{ tags: ["js", "vue"] },
+			{ tags: ["python"] },
+		]);
+
+		const values = uniqueValues(entries, "tags");
+
+		expect(values).toEqual(["js", "python", "react", "vue"]);
+	});
+
+	it("skips undefined values", () => {
+		const entries = makeTaggedEntries([
+			{ category: "tutorial" },
+			{ category: undefined },
+		]);
+
+		const values = uniqueValues(entries, "category");
+
+		expect(values).toEqual(["tutorial"]);
+	});
+
+	it("returns sorted results", () => {
+		const entries = makeTaggedEntries([{ tags: ["zebra", "apple", "mango"] }]);
+
+		const values = uniqueValues(entries, "tags");
+
+		expect(values).toEqual(["apple", "mango", "zebra"]);
+	});
+
+	it("handles empty entries array", () => {
+		const values = uniqueValues<TaggedMetadata>([], "tags");
+
+		expect(values).toEqual([]);
+	});
+});
+
+describe("mergeCollections", () => {
+	beforeEach(() => {
+		resetGlobalStore();
+	});
+
+	it("merges entries from multiple collections", () => {
+		const store = getGlobalStore();
+		store.set("/pages/blog", makeStoreCollection("blog", "/pages/blog", 2));
+		store.set("/pages/news", makeStoreCollection("news", "/pages/news", 3));
+
+		const merged = mergeCollections(["blog", "news"]);
+
+		expect(merged).toHaveLength(5);
+	});
+
+	it("returns empty array for empty names list", () => {
+		const merged = mergeCollections([]);
+
+		expect(merged).toEqual([]);
+	});
+
+	it("preserves entries from all collections", () => {
+		const store = getGlobalStore();
+		store.set("/pages/blog", makeStoreCollection("blog", "/pages/blog", 1));
+		store.set("/pages/docs", makeStoreCollection("docs", "/pages/docs", 1));
+
+		const merged = mergeCollections(["blog", "docs"]);
+		const paths = merged.map((e) => e.filePath);
+
+		expect(paths).toContain("/pages/blog/entry-0.md");
+		expect(paths).toContain("/pages/docs/entry-0.md");
+	});
+
+	it("throws for unknown collection", () => {
+		expect(() => mergeCollections(["nonexistent"])).toThrow(
+			/Collection "nonexistent" not found/,
+		);
 	});
 });
