@@ -14,6 +14,7 @@ Define a [Zod](https://zod.dev/) schema, drop in your markdown files, and get fu
 | [Rendering Content](./docs/rendering.md) | Markdown to HTML, headings, custom plugins |
 | [TypeScript Setup](./docs/typescript-setup.md) | Generated types, virtual module declarations, tsconfig |
 | [Advanced Features](./docs/advanced-features.md) | Computed fields, references, drafts, sorting, and more |
+| [Internationalization](./docs/i18n.md) | Multilingual content with slug suffix or metadata strategy |
 
 ## Features
 
@@ -25,6 +26,11 @@ Define a [Zod](https://zod.dev/) schema, drop in your markdown files, and get fu
 - **Computed fields** -- derive reading time, excerpts, or any value from each entry
 - **Collection references** -- cross-collection slug validation
 - **Draft mode** -- drafts visible in dev, excluded in production
+- **Navigation helpers** -- breadcrumbs, next/previous links, entry URLs, and collection tree for site navigation
+- **Content discovery** -- related entries by shared metadata, cross-collection merge, unique values extraction
+- **Content series** -- ordered multi-part content sequences with series-aware navigation
+- **i18n support** -- locale detection and localized entry lookup via slug suffix or metadata
+- **Grouping & TOC** -- group entries by any metadata key, build nested table-of-contents trees from headings
 - **Server-only by default** -- runtime APIs automatically return safe no-op stubs on the client, keeping Node.js code out of the browser bundle
 - **HMR** -- incremental updates on file changes during development
 - **Virtual module** -- `virtual:content-collection` exposes data to other Vite plugins
@@ -448,6 +454,161 @@ page.hasNextPage     // boolean
 page.hasPreviousPage // boolean
 ```
 
+#### `groupBy(entries, key)`
+
+Group entries by a metadata key. Array values (e.g. tags) place the entry in multiple groups:
+
+```ts
+import { getCollection, groupBy } from 'vike-content-collection'
+
+const posts = getCollection('blog')
+const byTag = groupBy(posts, 'tags')
+// Map { 'javascript' => [...], 'react' => [...] }
+```
+
+---
+
+### Navigation
+
+#### `getBreadcrumbs(collectionName, slug?, options?)`
+
+Generate breadcrumb trails from collection names and entry slugs:
+
+```ts
+import { getBreadcrumbs } from 'vike-content-collection'
+
+const crumbs = getBreadcrumbs('docs/guides', 'getting-started', {
+  labels: { docs: 'Documentation' },
+})
+// [
+//   { label: 'Documentation', path: '/docs' },
+//   { label: 'Guides', path: '/docs/guides' },
+//   { label: 'Getting Started', path: '/docs/guides/getting-started' },
+// ]
+```
+
+#### `getAdjacentEntries(name, currentSlug, options?)`
+
+Find previous/next entries for navigation links:
+
+```ts
+import { getAdjacentEntries } from 'vike-content-collection'
+
+const { prev, next } = getAdjacentEntries('blog', 'my-post', {
+  sortBy: 'date',
+  order: 'desc',
+})
+```
+
+#### `getCollectionTree()`
+
+Get all collections as a hierarchical tree (for sidebars):
+
+```ts
+import { getCollectionTree } from 'vike-content-collection'
+
+const tree = getCollectionTree()
+// [{ name: 'docs', fullName: 'docs', children: [...] }, ...]
+```
+
+#### `buildTocTree(headings)`
+
+Convert flat headings into a nested table-of-contents tree:
+
+```ts
+import { extractHeadings, buildTocTree } from 'vike-content-collection'
+
+const headings = await extractHeadings(post.content)
+const toc = buildTocTree(headings)
+// [{ depth: 2, text: 'Setup', id: 'setup', children: [...] }]
+```
+
+#### `getRelatedEntries(name, slug, options)`
+
+Find entries related by shared metadata (tags, category, etc.):
+
+```ts
+import { getRelatedEntries } from 'vike-content-collection'
+
+const related = getRelatedEntries('blog', 'my-post', {
+  by: ['tags', 'category'],
+  limit: 3,
+})
+```
+
+#### `mergeCollections(names)`
+
+Combine entries from multiple collections:
+
+```ts
+import { mergeCollections, sortCollection } from 'vike-content-collection'
+
+const all = mergeCollections(['blog', 'news'])
+const latest = sortCollection(all, 'date', 'desc')
+```
+
+#### `uniqueValues(entries, key)`
+
+Get all unique values for a metadata key:
+
+```ts
+import { getCollection, uniqueValues } from 'vike-content-collection'
+
+const allTags = uniqueValues(getCollection('blog'), 'tags')
+// ['javascript', 'python', 'react']
+```
+
+#### `getEntryUrl(collectionName, slug, options?)`
+
+Generate a URL path for an entry:
+
+```ts
+import { getEntryUrl } from 'vike-content-collection'
+
+const url = getEntryUrl('docs/guides', 'intro', { basePath: '/en' })
+// '/en/docs/guides/intro'
+```
+
+---
+
+### Content series
+
+#### `getSeries(name, currentSlug, seriesName, options?)`
+
+Get an ordered series of entries with navigation:
+
+```ts
+import { getSeries } from 'vike-content-collection'
+
+const series = getSeries('blog', 'part-2', 'react-tutorial')
+// { name: 'react-tutorial', entries: [...], currentIndex: 1, total: 3, prev, next }
+```
+
+---
+
+### i18n locales
+
+#### `getAvailableLocales(name, baseSlug, options?)`
+
+Get available locales for a base slug:
+
+```ts
+import { getAvailableLocales } from 'vike-content-collection'
+
+const locales = getAvailableLocales('docs', 'getting-started')
+// ['', 'de', 'fr']
+```
+
+#### `getLocalizedEntry(name, baseSlug, locale, options?)`
+
+Get a specific localized version:
+
+```ts
+import { getLocalizedEntry } from 'vike-content-collection'
+
+const frEntry = getLocalizedEntry('docs', 'getting-started', 'fr')
+```
+
 ---
 
 ### Git last modified
@@ -554,10 +715,22 @@ import {
   getCollectionEntry,           // filtered entries
   renderEntry,                  // content -> HTML (uses default or custom renderer)
   extractHeadings,              // headings from markdown
+  buildTocTree,                 // nested TOC tree from flat headings
   createMarkdownRenderer,       // built-in markdown renderer factory
   createMdxRenderer,            // built-in MDX renderer factory
   sortCollection,               // sort by metadata key
   paginate,                     // paginate entries
+  groupBy,                      // group entries by metadata key
+  getBreadcrumbs,               // breadcrumb trail from collection path
+  getAdjacentEntries,           // previous/next entries in a collection
+  getCollectionTree,            // collection hierarchy as a tree
+  getEntryUrl,                  // URL path for a collection entry
+  getRelatedEntries,            // related entries by shared metadata
+  mergeCollections,             // combine entries from multiple collections
+  uniqueValues,                 // unique values for a metadata key
+  getSeries,                    // ordered content series with navigation
+  getAvailableLocales,          // available locales for an entry
+  getLocalizedEntry,            // localized version of an entry
   reference,                    // cross-collection reference schema
 } from 'vike-content-collection'
 ```
@@ -586,7 +759,17 @@ import type {
   RenderResult,
   RenderOptions,
   Heading,
+  TocNode,
   PaginationResult,
+  Breadcrumb,
+  BreadcrumbOptions,
+  AdjacentEntries,
+  CollectionTreeNode,
+  EntryUrlOptions,
+  RelatedEntriesOptions,
+  SeriesResult,
+  SeriesOptions,
+  LocaleOptions,
 } from 'vike-content-collection'
 ```
 
@@ -613,6 +796,16 @@ import type {
 | `RenderOptions` | Custom `remarkPlugins`, `rehypePlugins`, and optional `renderer` |
 | `Heading` | `{ depth: number, text: string, id: string }` |
 | `PaginationResult<T>` | Paginated result with `items`, page info, and navigation |
+| `Breadcrumb` | `{ label: string, path: string }` |
+| `BreadcrumbOptions` | Options for `getBreadcrumbs()`: `labels`, `basePath`, `includeCurrent`, `currentLabel` |
+| `AdjacentEntries<T>` | `{ prev: TypedCollectionEntry \| undefined, next: TypedCollectionEntry \| undefined }` |
+| `TocNode` | `{ depth, text, id, children: TocNode[] }` |
+| `CollectionTreeNode` | `{ name, fullName, children: CollectionTreeNode[] }` |
+| `EntryUrlOptions` | Options for `getEntryUrl()`: `basePath`, `extension` |
+| `RelatedEntriesOptions` | Options for `getRelatedEntries()`: `by`, `limit` |
+| `SeriesResult<T>` | Result of `getSeries()`: `name`, `entries`, `currentIndex`, `total`, `prev`, `next` |
+| `SeriesOptions` | Options for `getSeries()`: `seriesField`, `orderField` |
+| `LocaleOptions` | Options for i18n helpers: `strategy`, `field`, `separator` |
 
 ## Requirements
 

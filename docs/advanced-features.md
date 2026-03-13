@@ -382,6 +382,337 @@ declare module 'virtual:content-collection' {
 }
 ```
 
+## Breadcrumbs
+
+Generate breadcrumb navigation trails from collection names and entry slugs. Collection names already encode hierarchy (`"docs/guides"` splits into two segments), so breadcrumbs are derived automatically.
+
+### `getBreadcrumbs(collectionName, slug?, options?)`
+
+```ts
+import { getBreadcrumbs } from 'vike-content-collection'
+
+const crumbs = getBreadcrumbs('docs/guides', 'getting-started')
+// [
+//   { label: 'Docs', path: '/docs' },
+//   { label: 'Guides', path: '/docs/guides' },
+//   { label: 'Getting Started', path: '/docs/guides/getting-started' },
+// ]
+```
+
+### Options
+
+| Option           | Type                       | Default  | Description                                        |
+| ---------------- | -------------------------- | -------- | -------------------------------------------------- |
+| `labels`         | `Record<string, string>`   | `{}`     | Map path segments to display labels                |
+| `basePath`       | `string`                   | `"/"`    | Prefix prepended to all breadcrumb paths            |
+| `includeCurrent` | `boolean`                  | `true`   | Include the entry as the last breadcrumb            |
+| `currentLabel`   | `string`                   | —        | Override label for the current entry crumb          |
+
+### Custom labels and base path
+
+```ts
+const crumbs = getBreadcrumbs('docs/guides', 'setup', {
+  labels: { docs: 'Documentation', guides: 'User Guides' },
+  basePath: '/en',
+})
+// [
+//   { label: 'Documentation', path: '/en/docs' },
+//   { label: 'User Guides', path: '/en/docs/guides' },
+//   { label: 'Setup', path: '/en/docs/guides/setup' },
+// ]
+```
+
+### Breadcrumbs without the current entry
+
+```ts
+const crumbs = getBreadcrumbs('docs/guides', 'setup', {
+  includeCurrent: false,
+})
+// [
+//   { label: 'Docs', path: '/docs' },
+//   { label: 'Guides', path: '/docs/guides' },
+// ]
+```
+
+## Next/previous navigation
+
+### `getAdjacentEntries(name, currentSlug, options?)`
+
+Find the previous and next entries relative to a given slug in a collection. Useful for "Previous" / "Next" links in blogs and documentation.
+
+```ts
+import { getAdjacentEntries } from 'vike-content-collection'
+
+const { prev, next } = getAdjacentEntries('blog', 'my-post', {
+  sortBy: 'date',
+  order: 'desc',
+})
+```
+
+| Option   | Type              | Default | Description                          |
+| -------- | ----------------- | ------- | ------------------------------------ |
+| `sortBy` | `string`          | —       | Metadata key to sort by before lookup |
+| `order`  | `'asc' \| 'desc'` | `'asc'` | Sort direction                        |
+
+Both `prev` and `next` are `TypedCollectionEntry | undefined`. If the slug is not found, both are `undefined`.
+
+### Usage in a page
+
+```ts
+// pages/blog/@slug/+data.ts
+import { getAdjacentEntries, getCollectionEntry } from 'vike-content-collection'
+import type { PageContext } from 'vike/types'
+
+export function data(pageContext: PageContext) {
+  const slug = pageContext.routeParams.slug
+  const post = getCollectionEntry('blog', slug)
+  const { prev, next } = getAdjacentEntries('blog', slug, {
+    sortBy: 'date',
+    order: 'desc',
+  })
+  return { post, prev, next }
+}
+```
+
+## Grouping
+
+### `groupBy(entries, key)`
+
+Group entries by a metadata key. Returns a `Map<string, TypedCollectionEntry[]>`. If the metadata value is an array (e.g. tags), the entry appears in a group for each element.
+
+```ts
+import { getCollection, groupBy } from 'vike-content-collection'
+
+const posts = getCollection('blog')
+const byTag = groupBy(posts, 'tags')
+// Map { 'javascript' => [...], 'react' => [...], 'python' => [...] }
+
+const byCategory = groupBy(posts, 'category')
+// Map { 'tutorial' => [...], 'guide' => [...] }
+```
+
+Entries where the key is `undefined` or `null` are skipped.
+
+## Table of contents tree
+
+### `buildTocTree(headings)`
+
+Convert a flat array of headings (from `extractHeadings` or `renderEntry`) into a nested tree structure. Each node has a `children` array for deeper headings.
+
+```ts
+import { extractHeadings, buildTocTree } from 'vike-content-collection'
+
+const headings = await extractHeadings(post.content)
+const tree = buildTocTree(headings)
+```
+
+### `TocNode`
+
+| Field      | Type        | Description            |
+| ---------- | ----------- | ---------------------- |
+| `depth`    | `number`    | Heading level (1–6)    |
+| `text`     | `string`    | Heading text           |
+| `id`       | `string`    | Slug ID for linking    |
+| `children` | `TocNode[]` | Nested child headings  |
+
+### Example output
+
+For headings `[H2, H3, H3, H2]`, `buildTocTree` returns:
+
+```ts
+[
+  { depth: 2, text: 'Section A', id: 'section-a', children: [
+    { depth: 3, text: 'Sub 1', id: 'sub-1', children: [] },
+    { depth: 3, text: 'Sub 2', id: 'sub-2', children: [] },
+  ]},
+  { depth: 2, text: 'Section B', id: 'section-b', children: [] },
+]
+```
+
+## Collection tree
+
+### `getCollectionTree()`
+
+Returns the hierarchy of all registered collections as a tree. Useful for generating sidebars or site maps.
+
+```ts
+import { getCollectionTree } from 'vike-content-collection'
+
+const tree = getCollectionTree()
+```
+
+### `CollectionTreeNode`
+
+| Field      | Type                    | Description                                                         |
+| ---------- | ----------------------- | ------------------------------------------------------------------- |
+| `name`     | `string`                | Segment name (e.g. `"guides"`)                                      |
+| `fullName` | `string`                | Full collection name (e.g. `"docs/guides"`), empty for intermediate nodes |
+| `children` | `CollectionTreeNode[]`  | Child collection nodes                                               |
+
+### Example
+
+Given collections `"docs"`, `"docs/guides"`, `"docs/api"`, and `"blog"`:
+
+```ts
+[
+  {
+    name: 'docs', fullName: 'docs', children: [
+      { name: 'guides', fullName: 'docs/guides', children: [] },
+      { name: 'api', fullName: 'docs/api', children: [] },
+    ]
+  },
+  { name: 'blog', fullName: 'blog', children: [] },
+]
+```
+
+## Related entries
+
+### `getRelatedEntries(name, currentSlug, options)`
+
+Find entries related to a given entry by scoring shared metadata values. Useful for "Related posts" sections on blogs and knowledge bases.
+
+```ts
+import { getRelatedEntries } from 'vike-content-collection'
+
+const related = getRelatedEntries('blog', 'my-post', {
+  by: ['tags', 'category'],
+  limit: 3,
+})
+```
+
+| Option  | Type       | Default | Description                                    |
+| ------- | ---------- | ------- | ---------------------------------------------- |
+| `by`    | `string[]` | —       | Metadata fields to compare for overlap          |
+| `limit` | `number`   | `5`     | Maximum number of related entries to return     |
+
+For array fields like `tags`, each shared element counts as one point of overlap. Entries are sorted by score descending; entries with zero overlap are excluded.
+
+## Merge collections
+
+### `mergeCollections(names)`
+
+Combine entries from multiple collections into a single array. Useful for aggregated views like "latest updates" or site-wide search results.
+
+```ts
+import { mergeCollections, sortCollection } from 'vike-content-collection'
+
+const all = mergeCollections(['blog', 'news', 'changelog'])
+const latest = sortCollection(all, 'date', 'desc').slice(0, 10)
+```
+
+The metadata type of the result is `Record<string, unknown>` since schemas may differ across collections.
+
+## Unique values
+
+### `uniqueValues(entries, key)`
+
+Extract all unique values for a metadata key. Array-valued fields are flattened. Returns a sorted, deduplicated array of strings.
+
+```ts
+import { getCollection, uniqueValues } from 'vike-content-collection'
+
+const posts = getCollection('blog')
+const allTags = uniqueValues(posts, 'tags')
+// ['javascript', 'python', 'react', 'vue']
+```
+
+## Entry URL
+
+### `getEntryUrl(collectionName, slug, options?)`
+
+Generate a URL path for a collection entry. Complements `getBreadcrumbs` for link generation.
+
+```ts
+import { getEntryUrl } from 'vike-content-collection'
+
+const url = getEntryUrl('docs/guides', 'getting-started')
+// '/docs/guides/getting-started'
+
+const url = getEntryUrl('blog', 'my-post', {
+  basePath: '/en',
+  extension: '.html',
+})
+// '/en/blog/my-post.html'
+```
+
+| Option      | Type     | Default | Description                          |
+| ----------- | -------- | ------- | ------------------------------------ |
+| `basePath`  | `string` | `"/"`   | Prefix prepended to the URL          |
+| `extension` | `string` | `""`    | File extension appended to the slug  |
+
+## Content series
+
+### `getSeries(name, currentSlug, seriesName, options?)`
+
+Get an ordered series of entries that share a common series identifier. Entries declare membership via metadata fields (e.g. `series: "react-tutorial"` and `seriesOrder: 2`).
+
+```ts
+import { getSeries } from 'vike-content-collection'
+
+const series = getSeries('blog', 'part-2', 'react-tutorial')
+if (series) {
+  console.log(`Part ${series.currentIndex + 1} of ${series.total}`)
+  // series.prev, series.next for navigation
+}
+```
+
+### `SeriesResult`
+
+| Field          | Type                            | Description                             |
+| -------------- | ------------------------------- | --------------------------------------- |
+| `name`         | `string`                        | Series identifier                        |
+| `entries`      | `TypedCollectionEntry[]`        | All entries in order                     |
+| `currentIndex` | `number`                        | Zero-based index of current entry        |
+| `total`        | `number`                        | Total entries in the series              |
+| `prev`         | `TypedCollectionEntry \| undefined` | Previous entry, or `undefined`       |
+| `next`         | `TypedCollectionEntry \| undefined` | Next entry, or `undefined`           |
+
+### `SeriesOptions`
+
+| Option        | Type     | Default         | Description                          |
+| ------------- | -------- | --------------- | ------------------------------------ |
+| `seriesField` | `string` | `"series"`      | Metadata field for series name       |
+| `orderField`  | `string` | `"seriesOrder"` | Metadata field for sort order        |
+
+Returns `undefined` if no entries match the series or the slug is not found within it.
+
+## i18n locale helpers
+
+Helpers for multilingual content. Supports two locale detection strategies:
+
+- **suffix** (default): locale is part of the slug (e.g. `getting-started.fr`)
+- **metadata**: locale is stored in a metadata field (e.g. `locale: "fr"`)
+
+### `getAvailableLocales(name, baseSlug, options?)`
+
+Get all available locales for a given base slug.
+
+```ts
+import { getAvailableLocales } from 'vike-content-collection'
+
+const locales = getAvailableLocales('docs', 'getting-started')
+// ['', 'de', 'fr']  ('' = default locale / base slug)
+```
+
+### `getLocalizedEntry(name, baseSlug, locale, options?)`
+
+Get a specific localized version of an entry.
+
+```ts
+import { getLocalizedEntry } from 'vike-content-collection'
+
+const frEntry = getLocalizedEntry('docs', 'getting-started', 'fr')
+const defaultEntry = getLocalizedEntry('docs', 'getting-started', '')
+```
+
+### `LocaleOptions`
+
+| Option      | Type                       | Default    | Description                              |
+| ----------- | -------------------------- | ---------- | ---------------------------------------- |
+| `strategy`  | `"suffix" \| "metadata"`   | `"suffix"` | How to detect locales                    |
+| `field`     | `string`                   | `"locale"` | Metadata field (metadata strategy only)  |
+| `separator` | `string`                   | `"."`      | Separator between slug and locale        |
+
 ## Server-only execution
 
 The plugin's runtime APIs (`getCollection`, `getCollectionEntry`, `renderEntry`, etc.) use Node.js-specific code that should not run in the browser. The plugin handles this automatically: when `vike-content-collection` is imported in a client-side bundle, the plugin intercepts the import and replaces it with a lightweight no-op module that exports safe stubs.
