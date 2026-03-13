@@ -24,6 +24,7 @@ Define a [Zod](https://zod.dev/) schema, drop in your markdown files, and get fu
 - **Computed fields** -- derive reading time, excerpts, or any value from each entry
 - **Collection references** -- cross-collection slug validation
 - **Draft mode** -- drafts visible in dev, excluded in production
+- **Server-only by default** -- runtime APIs automatically return safe no-op stubs on the client, keeping Node.js code out of the browser bundle
 - **HMR** -- incremental updates on file changes during development
 - **Virtual module** -- `virtual:content-collection` exposes data to other Vite plugins
 
@@ -55,7 +56,7 @@ export default {
 }
 ```
 
-Marking the package as `ssr.external` ensures Vite doesn't bundle it during SSR, which is required for the plugin to work correctly.
+Marking the package as `ssr.external` ensures Vite doesn't bundle it during SSR, which is required for the plugin to work correctly. The plugin automatically provides no-op stubs for client-side bundles, so Node.js-specific code is never shipped to the browser.
 
 ### 3. Extend the Vike config
 
@@ -538,7 +539,8 @@ Errors include the file path, line number, Zod error path, and validation messag
 7. **References** -- verifies cross-collection `reference()` slugs exist
 8. **Types** -- emits `.vike-content-collection/types.d.ts`
 9. **Serve** -- exposes data through `virtual:content-collection`
-10. **HMR** -- incrementally re-processes changed files, regenerates types, and invalidates the virtual module
+10. **Client noop** -- intercepts client-side imports and replaces them with safe no-op stubs
+11. **HMR** -- incrementally re-processes changed files, regenerates types, and invalidates the virtual module
 
 ## API Reference
 

@@ -29,6 +29,7 @@ Config export from `vike-content-collection/config`:
 
 ## Key Concepts
 
+- The plugin automatically provides no-op stubs for client-side bundles, keeping Node.js code out of the browser. Runtime functions like `getCollection()` return safe empty values on the client.
 - `vike-content-collection` must be listed in `ssr.external` in `vite.config.ts` so Vite does not bundle it during SSR
 - A `+Content.ts` file defines a collection by exporting a Zod schema (or `{ schema, computed?, slug?, type?, contentPath? }`)
 - Collection names are derived from directory paths (e.g. `pages/blog/+Content.ts` → `"blog"`)

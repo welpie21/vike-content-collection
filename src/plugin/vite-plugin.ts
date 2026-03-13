@@ -19,9 +19,24 @@ import { validateMetadata } from "./validation.js";
 
 const VIRTUAL_MODULE_ID = "virtual:content-collection";
 const RESOLVED_VIRTUAL_MODULE_ID = `\0${VIRTUAL_MODULE_ID}`;
+const NOOP_MODULE_ID = "\0vike-content-collection-noop";
 const CONTENT_CONFIG_PATTERN = /\+Content\.(ts|js|mts|mjs)$/;
 const MARKDOWN_PATTERN = /\.mdx?$/i;
 const DATA_FILE_PATTERN = /\.(json|ya?ml|toml)$/i;
+
+const CLIENT_NOOP_CODE = [
+	"export const vikeContentCollectionPlugin = () => ({});",
+	"export default vikeContentCollectionPlugin;",
+	"export const getCollection = () => [];",
+	"export const getCollectionEntry = () => undefined;",
+	"export const paginate = (_entries, _options) => ({ items: [], currentPage: 1, totalPages: 1, totalItems: 0, hasNextPage: false, hasPreviousPage: false });",
+	"export const sortCollection = (entries) => [...entries];",
+	"export const reference = () => ({});",
+	"export const renderEntry = async () => ({ html: '', headings: [] });",
+	"export const extractHeadings = async () => [];",
+	"export const createMarkdownRenderer = () => ({ render: async () => ({ html: '', headings: [] }) });",
+	"export const createMdxRenderer = () => ({ render: async () => ({ html: '', headings: [] }) });",
+].join("\n");
 
 interface PluginDevServer {
 	moduleGraph: {
@@ -395,9 +410,16 @@ export function vikeContentCollectionPlugin(
 			await scanAndProcess();
 		},
 
-		resolveId(id: string) {
+		resolveId(
+			id: string,
+			_importer: string | undefined,
+			options?: { ssr?: boolean },
+		) {
 			if (id === VIRTUAL_MODULE_ID) {
 				return RESOLVED_VIRTUAL_MODULE_ID;
+			}
+			if (id === "vike-content-collection" && !options?.ssr) {
+				return NOOP_MODULE_ID;
 			}
 		},
 
@@ -405,6 +427,9 @@ export function vikeContentCollectionPlugin(
 			if (id === RESOLVED_VIRTUAL_MODULE_ID) {
 				const data = store.toSerializable();
 				return `export const collections = ${JSON.stringify(data, null, 2)};`;
+			}
+			if (id === NOOP_MODULE_ID) {
+				return CLIENT_NOOP_CODE;
 			}
 		},
 

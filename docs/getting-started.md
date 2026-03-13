@@ -47,6 +47,8 @@ export default {
 
 The `ssr.external` entry is required -- it tells Vite not to bundle the package during SSR so the plugin's runtime works correctly.
 
+The plugin automatically provides no-op stubs for client-side bundles, so Node.js-specific code is never shipped to the browser. No extra configuration is needed for this.
+
 The plugin accepts [options](./advanced-features.md#plugin-options) but none are required to get started.
 
 ### 2. Extend the Vike config

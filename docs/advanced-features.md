@@ -380,6 +380,19 @@ declare module 'virtual:content-collection' {
 }
 ```
 
+## Server-only execution
+
+The plugin's runtime APIs (`getCollection`, `getCollectionEntry`, `renderEntry`, etc.) use Node.js-specific code that should not run in the browser. The plugin handles this automatically: when `vike-content-collection` is imported in a client-side bundle, the plugin intercepts the import and replaces it with a lightweight no-op module that exports safe stubs.
+
+This means:
+
+- `getCollection()` returns `[]` on the client
+- `getCollectionEntry()` returns `undefined` on the client
+- `renderEntry()` returns `{ html: '', headings: [] }` on the client
+- All other runtime functions return safe empty values
+
+No additional configuration is needed. This works out of the box as long as the Vite plugin is registered. Use `+data.ts` files (which run on the server) to call the runtime APIs and pass data to your page components.
+
 ## Plugin options
 
 All options at a glance:
