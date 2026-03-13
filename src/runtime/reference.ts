@@ -14,10 +14,7 @@ export function reference(collectionName: string) {
 }
 
 /** Check whether a Zod schema was created by `reference()`. */
-export function isReference(schema: unknown): schema is z.ZodBranded<
-	z.ZodString,
-	typeof REFERENCE_METADATA
-> & {
+export function isReference(schema: unknown): schema is z.ZodString & {
 	_collectionRef: string;
 } {
 	return (

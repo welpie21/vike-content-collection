@@ -30,12 +30,13 @@ function mapZodErrors(
 	lineMap: MetadataLineMap,
 ): ValidationIssue[] {
 	return error.issues.map((issue) => {
-		const keyPath = issue.path.join(".");
+		const path = issue.path.map((p) => (typeof p === "symbol" ? String(p) : p));
+		const keyPath = path.join(".");
 		const line = findLineForPath(keyPath, lineMap);
 
 		return {
 			message: issue.message,
-			path: issue.path,
+			path,
 			filePath,
 			line,
 		};

@@ -19,25 +19,35 @@ export function sortCollection<T>(
 	key: keyof T & string,
 	order: "asc" | "desc" = "asc",
 ): TypedCollectionEntry<T>[] {
-	return [...entries].sort((a, b) => {
-		const aVal = a.metadata[key];
-		const bVal = b.metadata[key];
+	const copy = entries.slice();
+	if (copy.length <= 1) return copy;
 
-		if (aVal instanceof Date && bVal instanceof Date) {
-			return order === "asc"
-				? aVal.getTime() - bVal.getTime()
-				: bVal.getTime() - aVal.getTime();
-		}
+	const sign = order === "desc" ? -1 : 1;
+	const sample = copy[0].metadata[key];
 
-		if (typeof aVal === "number" && typeof bVal === "number") {
-			return order === "asc" ? aVal - bVal : bVal - aVal;
-		}
+	if (sample instanceof Date) {
+		copy.sort(
+			(a, b) =>
+				sign *
+				((a.metadata[key] as unknown as Date).getTime() -
+					(b.metadata[key] as unknown as Date).getTime()),
+		);
+	} else if (typeof sample === "number") {
+		copy.sort(
+			(a, b) =>
+				sign *
+				((a.metadata[key] as unknown as number) -
+					(b.metadata[key] as unknown as number)),
+		);
+	} else {
+		copy.sort((a, b) => {
+			const aStr = String(a.metadata[key] ?? "");
+			const bStr = String(b.metadata[key] ?? "");
+			return sign * aStr.localeCompare(bStr);
+		});
+	}
 
-		const aStr = String(aVal ?? "");
-		const bStr = String(bVal ?? "");
-		const cmp = aStr.localeCompare(bStr);
-		return order === "asc" ? cmp : -cmp;
-	});
+	return copy;
 }
 
 /**
@@ -55,19 +65,20 @@ export function groupBy<T>(
 
 	for (const entry of entries) {
 		const value = entry.metadata[key];
-		if (value === undefined || value === null) continue;
+		if (value == null) continue;
 
-		const keys: string[] = Array.isArray(value)
-			? value.map(String)
-			: [String(value)];
-
-		for (const k of keys) {
-			const group = groups.get(k);
-			if (group) {
-				group.push(entry);
-			} else {
-				groups.set(k, [entry]);
+		if (Array.isArray(value)) {
+			for (let i = 0; i < value.length; i++) {
+				const k = String(value[i]);
+				const group = groups.get(k);
+				if (group) group.push(entry);
+				else groups.set(k, [entry]);
 			}
+		} else {
+			const k = String(value);
+			const group = groups.get(k);
+			if (group) group.push(entry);
+			else groups.set(k, [entry]);
 		}
 	}
 

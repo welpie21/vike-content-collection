@@ -1,9 +1,4 @@
 import GithubSlugger from "github-slugger";
-import type { Root as MdastRoot } from "mdast";
-import { toString as mdastToString } from "mdast-util-to-string";
-import remarkParse from "remark-parse";
-import { unified } from "unified";
-import { visit } from "unist-util-visit";
 import type {
 	ContentRenderer,
 	Heading,
@@ -40,23 +35,52 @@ export async function renderEntry<T>(
 	return renderer.render(entry.content, pluginOptions);
 }
 
+const headingPattern = /^(#{1,6})\s+(.+?)(?:\s+#+)?$/;
+const codeBlockPattern = /^(`{3,}|~{3,})/;
+
+function stripInlineFormatting(raw: string): string {
+	return raw
+		.replace(/\*\*(.+?)\*\*/g, "$1")
+		.replace(/__(.+?)__/g, "$1")
+		.replace(/\*(.+?)\*/g, "$1")
+		.replace(/_(.+?)_/g, "$1")
+		.replace(/~~(.+?)~~/g, "$1")
+		.replace(/`(.+?)`/g, "$1")
+		.replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+		.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+		.trim();
+}
+
 /**
  * Extract headings from raw markdown without performing a full HTML render.
+ *
+ * Uses a direct line scan instead of building a full AST, skipping
+ * fenced code blocks. Inline markdown formatting is stripped to produce
+ * plain-text heading labels.
  */
 export async function extractHeadings(content: string): Promise<Heading[]> {
 	const headings: Heading[] = [];
 	const slugger = new GithubSlugger();
+	const lines = content.split("\n");
+	let inCodeBlock = false;
 
-	const tree = unified().use(remarkParse).parse(content);
+	for (const line of lines) {
+		if (codeBlockPattern.test(line)) {
+			inCodeBlock = !inCodeBlock;
+			continue;
+		}
+		if (inCodeBlock) continue;
 
-	visit(tree as MdastRoot, "heading", (node) => {
-		const text = mdastToString(node);
-		headings.push({
-			depth: node.depth,
-			text,
-			id: slugger.slug(text),
-		});
-	});
+		const match = headingPattern.exec(line);
+		if (match) {
+			const text = stripInlineFormatting(match[2]);
+			headings.push({
+				depth: match[1].length,
+				text,
+				id: slugger.slug(text),
+			});
+		}
+	}
 
 	return headings;
 }
