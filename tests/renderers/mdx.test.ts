@@ -162,15 +162,9 @@ describe("createMdxRenderer", () => {
 
 	describe("alias resolution", () => {
 		it("rewrites aliased import paths in MDX content", async () => {
-			const runtime = {
-				jsx: () => "",
-				jsxs: () => "",
-				Fragment: () => "",
-			};
-
-			let compiledContent = "";
+			let _compiledContent = "";
 			const capturePlugin = () => (tree: any) => {
-				compiledContent = JSON.stringify(tree);
+				_compiledContent = JSON.stringify(tree);
 			};
 
 			const renderer = createMdxRenderer({
