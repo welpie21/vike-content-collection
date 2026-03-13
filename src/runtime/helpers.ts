@@ -1,4 +1,5 @@
 import type { TypedCollectionEntry } from "../types/index.js";
+import { getCollection } from "./get-collection.js";
 
 export interface PaginationResult<T> {
 	items: TypedCollectionEntry<T>[];
@@ -40,6 +41,40 @@ export function sortCollection<T>(
 }
 
 /**
+ * Group collection entries by a metadata key.
+ *
+ * If the metadata value is an array (e.g. tags), the entry is added to a
+ * group for each element. Entries where the key is `undefined` or `null`
+ * are skipped.
+ */
+export function groupBy<T>(
+	entries: TypedCollectionEntry<T>[],
+	key: keyof T & string,
+): Map<string, TypedCollectionEntry<T>[]> {
+	const groups = new Map<string, TypedCollectionEntry<T>[]>();
+
+	for (const entry of entries) {
+		const value = entry.metadata[key];
+		if (value === undefined || value === null) continue;
+
+		const keys: string[] = Array.isArray(value)
+			? value.map(String)
+			: [String(value)];
+
+		for (const k of keys) {
+			const group = groups.get(k);
+			if (group) {
+				group.push(entry);
+			} else {
+				groups.set(k, [entry]);
+			}
+		}
+	}
+
+	return groups;
+}
+
+/**
  * Paginate an array of collection entries.
  */
 export function paginate<T>(
@@ -61,4 +96,48 @@ export function paginate<T>(
 		hasNextPage: page < totalPages,
 		hasPreviousPage: page > 1,
 	};
+}
+
+/**
+ * Merge entries from multiple collections into a single array.
+ *
+ * Useful for aggregated views like "latest updates" pages.
+ * The caller can sort, paginate, or filter the combined result.
+ */
+export function mergeCollections(
+	names: string[],
+): TypedCollectionEntry<Record<string, unknown>>[] {
+	const result: TypedCollectionEntry<Record<string, unknown>>[] = [];
+	for (const name of names) {
+		result.push(...getCollection(name));
+	}
+	return result;
+}
+
+/**
+ * Extract all unique values for a metadata key across entries.
+ *
+ * Array-valued fields (like tags) are flattened. Entries where the key
+ * is `undefined` or `null` are skipped. Returns a sorted, deduplicated array.
+ */
+export function uniqueValues<T>(
+	entries: TypedCollectionEntry<T>[],
+	key: keyof T & string,
+): string[] {
+	const values = new Set<string>();
+
+	for (const entry of entries) {
+		const value = entry.metadata[key];
+		if (value === undefined || value === null) continue;
+
+		if (Array.isArray(value)) {
+			for (const v of value) {
+				values.add(String(v));
+			}
+		} else {
+			values.add(String(value));
+		}
+	}
+
+	return [...values].sort();
 }

@@ -9,6 +9,7 @@ import type {
 	Heading,
 	RenderOptions,
 	RenderResult,
+	TocNode,
 	TypedCollectionEntry,
 } from "../types/index.js";
 import { createMarkdownRenderer } from "./renderers/markdown.js";
@@ -58,4 +59,35 @@ export async function extractHeadings(content: string): Promise<Heading[]> {
 	});
 
 	return headings;
+}
+
+/**
+ * Convert a flat array of headings into a nested tree structure.
+ *
+ * Uses a stack to track the current nesting depth. Each heading becomes a
+ * child of the nearest preceding heading with a shallower depth.
+ */
+export function buildTocTree(headings: Heading[]): TocNode[] {
+	const root: TocNode[] = [];
+	const stack: { depth: number; children: TocNode[] }[] = [
+		{ depth: 0, children: root },
+	];
+
+	for (const heading of headings) {
+		const node: TocNode = {
+			depth: heading.depth,
+			text: heading.text,
+			id: heading.id,
+			children: [],
+		};
+
+		while (stack.length > 1 && stack[stack.length - 1].depth >= heading.depth) {
+			stack.pop();
+		}
+
+		stack[stack.length - 1].children.push(node);
+		stack.push({ depth: heading.depth, children: node.children });
+	}
+
+	return root;
 }

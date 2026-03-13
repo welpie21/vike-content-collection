@@ -36,6 +36,18 @@ const CLIENT_NOOP_CODE = [
 	"export const extractHeadings = async () => [];",
 	"export const createMarkdownRenderer = () => ({ render: async () => ({ html: '', headings: [] }) });",
 	"export const createMdxRenderer = () => ({ render: async () => ({ html: '', headings: [] }) });",
+	"export const groupBy = () => new Map();",
+	"export const getBreadcrumbs = () => [];",
+	"export const getAdjacentEntries = () => ({ prev: undefined, next: undefined });",
+	"export const getCollectionTree = () => [];",
+	"export const buildTocTree = () => [];",
+	"export const getRelatedEntries = () => [];",
+	"export const mergeCollections = () => [];",
+	"export const uniqueValues = () => [];",
+	"export const getEntryUrl = () => '/';",
+	"export const getSeries = () => undefined;",
+	"export const getAvailableLocales = () => [];",
+	"export const getLocalizedEntry = () => undefined;",
 ].join("\n");
 
 interface PluginDevServer {
@@ -45,7 +57,11 @@ interface PluginDevServer {
 	};
 	ssrLoadModule(url: string): Promise<Record<string, any>>;
 	hot: {
-		send(payload: { type: string; path?: string; [key: string]: unknown }): void;
+		send(payload: {
+			type: string;
+			path?: string;
+			[key: string]: unknown;
+		}): void;
 	};
 	watcher: {
 		on(event: string, handler: (path: string) => void): void;

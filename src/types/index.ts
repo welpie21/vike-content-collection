@@ -138,6 +138,101 @@ export interface MdxRendererOptions extends Omit<RenderOptions, "renderer"> {
 	evaluate?: MdxEvaluateOptions;
 }
 
+/** A single breadcrumb segment in a navigation trail. */
+export interface Breadcrumb {
+	label: string;
+	path: string;
+}
+
+/** Options for generating breadcrumbs from a collection path. */
+export interface BreadcrumbOptions {
+	/** Map path segments to display labels (e.g. `{ docs: "Documentation" }`). */
+	labels?: Record<string, string>;
+	/** Path prefix prepended to all breadcrumb paths. Defaults to `"/"`. */
+	basePath?: string;
+	/** Whether to include the current entry as the last breadcrumb. Defaults to `true`. */
+	includeCurrent?: boolean;
+	/** Override the label for the current entry breadcrumb. */
+	currentLabel?: string;
+}
+
+/** Previous and next entries relative to a given entry in a collection. */
+export interface AdjacentEntries<
+	TMetadata,
+	TComputed = Record<string, unknown>,
+> {
+	prev: TypedCollectionEntry<TMetadata, TComputed> | undefined;
+	next: TypedCollectionEntry<TMetadata, TComputed> | undefined;
+}
+
+/** A node in a nested table-of-contents tree built from flat headings. */
+export interface TocNode {
+	depth: number;
+	text: string;
+	id: string;
+	children: TocNode[];
+}
+
+/** A node in the collection hierarchy tree. */
+export interface CollectionTreeNode {
+	/** Segment name (e.g. `"guides"`). */
+	name: string;
+	/** Full collection name (e.g. `"docs/guides"`), or empty string for intermediate-only nodes. */
+	fullName: string;
+	/** Child collection nodes. */
+	children: CollectionTreeNode[];
+}
+
+/** Options for finding related entries by shared metadata values. */
+export interface RelatedEntriesOptions {
+	/** Metadata fields to compare for overlap (e.g. `["tags", "category"]`). */
+	by: string[];
+	/** Maximum number of related entries to return. Defaults to `5`. */
+	limit?: number;
+}
+
+/** Options for generating an entry URL path. */
+export interface EntryUrlOptions {
+	/** Path prefix prepended to the URL. Defaults to `"/"`. */
+	basePath?: string;
+	/** File extension appended to the slug (e.g. `".html"`). */
+	extension?: string;
+}
+
+/** Result of resolving a content series for a given entry. */
+export interface SeriesResult<TMetadata, TComputed = Record<string, unknown>> {
+	/** Series identifier. */
+	name: string;
+	/** All entries in the series, sorted by order. */
+	entries: TypedCollectionEntry<TMetadata, TComputed>[];
+	/** Zero-based index of the current entry within the series. */
+	currentIndex: number;
+	/** Total number of entries in the series. */
+	total: number;
+	/** Previous entry in the series, or `undefined` if current is first. */
+	prev: TypedCollectionEntry<TMetadata, TComputed> | undefined;
+	/** Next entry in the series, or `undefined` if current is last. */
+	next: TypedCollectionEntry<TMetadata, TComputed> | undefined;
+}
+
+/** Options for configuring series field names. */
+export interface SeriesOptions {
+	/** Metadata field that holds the series name. Defaults to `"series"`. */
+	seriesField?: string;
+	/** Metadata field that holds the sort order within the series. Defaults to `"seriesOrder"`. */
+	orderField?: string;
+}
+
+/** Options for i18n locale detection strategy. */
+export interface LocaleOptions {
+	/** How to detect locales: by slug suffix or metadata field. Defaults to `"suffix"`. */
+	strategy?: "suffix" | "metadata";
+	/** Metadata field name when using the `"metadata"` strategy. Defaults to `"locale"`. */
+	field?: string;
+	/** Separator between base slug and locale in suffix strategy. Defaults to `"."`. */
+	separator?: string;
+}
+
 /** Predicate function used to filter collection entries. */
 export type CollectionEntryPredicate<T, C = Record<string, unknown>> = (
 	entry: TypedCollectionEntry<T, C>,
