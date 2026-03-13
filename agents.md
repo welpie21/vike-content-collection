@@ -42,6 +42,7 @@ src/
     └── Config.ts
 
 tests/                    # Unit tests (mirror src/ structure)
+benchmarks/               # Performance benchmarks with baseline comparison
 docs/                     # User-facing documentation guides
 ```
 
@@ -106,3 +107,5 @@ All code must follow the SOLID principles:
 | `bun run lint` | Check linting (Biome) |
 | `bun run lint:fix` | Auto-fix lint issues |
 | `bun run format` | Auto-format code (Biome) |
+| `bun run bench` | Run benchmarks and compare against baseline |
+| `bun run bench:save` | Run benchmarks and save as new baseline |

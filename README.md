@@ -807,6 +807,27 @@ import type {
 | `SeriesOptions` | Options for `getSeries()`: `seriesField`, `orderField` |
 | `LocaleOptions` | Options for i18n helpers: `strategy`, `field`, `separator` |
 
+## Development
+
+```bash
+bun install          # Install dependencies
+bun run build        # Compile TypeScript to dist/
+bun test             # Run all unit tests
+bun run bench        # Run benchmarks and compare against baseline
+bun run bench:save   # Run benchmarks and save as new baseline
+bun run lint         # Check linting (Biome)
+```
+
+### Benchmarks
+
+The `benchmarks/` directory contains performance benchmarks for key functions (parsing, validation, sorting, etc.). Use `bun run bench:save` to establish a baseline, then `bun run bench` after making changes to detect regressions. The runner exits with code 1 if any benchmark regresses beyond the threshold (default ±10%).
+
+```bash
+bun run bench                    # Compare against saved baseline
+bun run bench:save               # Save current results as baseline
+bun run bench -- --threshold 15  # Custom regression threshold (%)
+```
+
 ## Requirements
 
 - Node.js >= 18

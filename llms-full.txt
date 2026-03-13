@@ -23,6 +23,13 @@ Define a Zod schema, drop in your markdown files, and get fully typed content wi
 - HMR -- incremental updates on file changes during development
 - Virtual module -- virtual:content-collection exposes data to other Vite plugins
 
+## Development
+
+- `bun run bench` -- run benchmarks and compare against saved baseline (exits 1 on regression)
+- `bun run bench:save` -- run benchmarks and save results as the new baseline
+- Benchmarks cover parsing, validation, sorting, grouping, rendering, and navigation functions
+- Regression threshold defaults to ±10%, configurable via `--threshold`
+
 ## Requirements
 
 - Node.js >= 18
