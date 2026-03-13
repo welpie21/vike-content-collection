@@ -89,18 +89,20 @@ All code must follow the SOLID principles:
 ## Coding Conventions
 
 - Use **tabs** for indentation and **double quotes** for strings (enforced by Biome).
-- Run `biome check .` (or `npm run lint`) to verify linting before finishing.
+- Run `biome check .` (or `bun run lint`) to verify linting before finishing.
 - Prefer named exports. The main `src/index.ts` re-exports the public API.
 - Type exports go in `src/types/`. Runtime code should import types from there.
 - Keep `src/plugin/` (build-time Vite plugin code) and `src/runtime/` (consumer-facing APIs) cleanly separated.
+- **Always use `bun`** as the package manager. Use `bun install` to add dependencies — never `npm install`, `yarn install` or `pnpm install`.
 
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
-| `npm run build` | Compile TypeScript to `dist/` |
-| `npm run dev` | Watch mode compilation |
+| `bun install` | Install dependencies |
+| `bun run build` | Compile TypeScript to `dist/` |
+| `bun run dev` | Watch mode compilation |
 | `bun test` | Run all unit tests |
-| `npm run lint` | Check linting (Biome) |
-| `npm run lint:fix` | Auto-fix lint issues |
-| `npm run format` | Auto-format code (Biome) |
+| `bun run lint` | Check linting (Biome) |
+| `bun run lint:fix` | Auto-fix lint issues |
+| `bun run format` | Auto-format code (Biome) |
