@@ -197,4 +197,5 @@ my-project/
 - [Defining Collections](./defining-collections.md) -- schema formats, data collections, and content directories
 - [Querying Data](./querying-data.md) -- filtering, entry shape, and usage patterns
 - [Rendering Content](./rendering.md) -- markdown to HTML, headings, and custom plugins
+- [TypeScript Setup](./typescript-setup.md) -- generated types, virtual module declarations, and troubleshooting
 - [Advanced Features](./advanced-features.md) -- computed fields, references, drafts, and more

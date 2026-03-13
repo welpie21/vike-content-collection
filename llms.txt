@@ -8,6 +8,7 @@
 - [Defining Collections](docs/defining-collections.md): Schema formats (simple and extended), export styles, collection naming, content (md/mdx) vs data collections, content directory configuration, validation errors
 - [Querying Data](docs/querying-data.md): getCollection(), getCollectionEntry() with all filter types, entry shape, usage patterns (blog listing, single post, combining collections, pagination)
 - [Rendering Content](docs/rendering.md): renderEntry() for content-to-HTML, MDX rendering, custom renderers (ContentRenderer interface), extractHeadings(), custom remark/rehype plugins
+- [TypeScript Setup](docs/typescript-setup.md): Generated declaration file, tsconfig.json configuration, virtual module type declaration, how CollectionMap augmentation works, troubleshooting
 - [Advanced Features](docs/advanced-features.md): Computed fields, collection references, custom slugs, draft mode, sorting, pagination, git last modified, custom content renderers, virtual module, plugin options
 
 ## API Quick Reference

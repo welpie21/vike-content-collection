@@ -2,46 +2,6 @@ import { isReference } from "../runtime/reference.js";
 import type { CollectionStore } from "./collection-store.js";
 
 /**
- * Walk metadata values looking for reference markers and verify the
- * referenced slugs exist in the target collection.  Logs warnings for
- * any broken references rather than throwing so the build can surface
- * all issues at once.
- */
-export function validateReferences(store: CollectionStore): void {
-	for (const collection of store.getAll()) {
-		for (const entry of collection.entries) {
-			walkAndValidate(entry.metadata, entry.filePath, store);
-		}
-	}
-}
-
-function walkAndValidate(
-	obj: unknown,
-	sourceFile: string,
-	store: CollectionStore,
-): void {
-	if (obj == null || typeof obj !== "object") return;
-
-	if (Array.isArray(obj)) {
-		for (const item of obj) {
-			walkAndValidate(item, sourceFile, store);
-		}
-		return;
-	}
-
-	for (const [_key, value] of Object.entries(obj as Record<string, unknown>)) {
-		if (typeof value === "string") {
-			// The value itself can't tell us if it's a reference at runtime.
-			// Reference validation therefore checks by looking at the schema
-			// shape registered via `reference()`.  Because Zod brands are
-			// stripped after parsing, we rely on the collection-level scan below.
-			continue;
-		}
-		walkAndValidate(value, sourceFile, store);
-	}
-}
-
-/**
  * Validate that all string values in metadata fields that were typed
  * with `reference(collectionName)` actually point to existing slugs.
  *

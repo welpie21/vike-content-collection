@@ -12,6 +12,7 @@ Define a [Zod](https://zod.dev/) schema, drop in your markdown files, and get fu
 | [Defining Collections](./docs/defining-collections.md) | Schema formats, data collections, content directories |
 | [Querying Data](./docs/querying-data.md) | `getCollection`, `getCollectionEntry`, usage patterns |
 | [Rendering Content](./docs/rendering.md) | Markdown to HTML, headings, custom plugins |
+| [TypeScript Setup](./docs/typescript-setup.md) | Generated types, virtual module declarations, tsconfig |
 | [Advanced Features](./docs/advanced-features.md) | Computed fields, references, drafts, sorting, and more |
 
 ## Features

@@ -360,6 +360,8 @@ Each entry in the array has `filePath`, `slug`, `metadata`, `content`, `computed
 
 ### TypeScript support
 
+> For full details on TypeScript configuration, including the auto-generated declaration file and troubleshooting, see the [TypeScript Setup](./typescript-setup.md) guide.
+
 To use the virtual module in TypeScript, add a type declaration:
 
 ```ts

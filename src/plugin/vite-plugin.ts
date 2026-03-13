@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { access, readdir, readFile } from "node:fs/promises";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { createJiti } from "jiti";
 import type { ZodSchema } from "zod";
@@ -12,9 +12,9 @@ import { type CollectionEntry, getGlobalStore } from "./collection-store.js";
 import { parseDataFile } from "./data-parser.js";
 import { ContentCollectionError } from "./errors.js";
 import { generateDeclarationFile } from "./generate-types.js";
-import { getLastModified } from "./git.js";
+import { getLastModifiedBatch } from "./git.js";
 import { parseMarkdownFile } from "./markdown.js";
-import { validateReferences } from "./reference-validator.js";
+import { validateReferenceFields } from "./reference-validator.js";
 import { validateMetadata } from "./validation.js";
 
 const VIRTUAL_MODULE_ID = "virtual:content-collection";
@@ -71,6 +71,7 @@ export function vikeContentCollectionPlugin(
 ) {
 	let root: string;
 	let devServer: PluginDevServer | null = null;
+	let jitiInstance: ReturnType<typeof createJiti> | null = null;
 	const store = getGlobalStore();
 
 	function getConfigRoot(): string {
@@ -153,8 +154,8 @@ export function vikeContentCollectionPlugin(
 		if (devServer) {
 			mod = await devServer.ssrLoadModule(configPath);
 		} else {
-			const jiti = createJiti(root);
-			mod = (await jiti.import(configPath)) as Record<string, unknown>;
+			if (!jitiInstance) jitiInstance = createJiti(root);
+			mod = (await jitiInstance.import(configPath)) as Record<string, unknown>;
 		}
 
 		const raw =
@@ -174,36 +175,58 @@ export function vikeContentCollectionPlugin(
 		return config;
 	}
 
-	function findContentFiles(dir: string, type: "content" | "data"): string[] {
-		const files: string[] = [];
-		if (!existsSync(dir)) return files;
+	async function findContentFiles(
+		dir: string,
+		type: "content" | "data",
+	): Promise<string[]> {
+		try {
+			await access(dir);
+		} catch {
+			return [];
+		}
 
 		const pattern = type === "data" ? DATA_FILE_PATTERN : MARKDOWN_PATTERN;
+		const entries = await readdir(dir, { withFileTypes: true });
 
-		for (const entry of readdirSync(dir, { withFileTypes: true })) {
-			const fullPath = join(dir, entry.name);
-			if (entry.isDirectory()) {
-				files.push(...findContentFiles(fullPath, type));
-			} else if (entry.isFile() && pattern.test(entry.name)) {
-				files.push(fullPath);
-			}
-		}
-		return files;
+		const nested = await Promise.all(
+			entries.map(async (entry) => {
+				const fullPath = join(dir, entry.name);
+				if (entry.isDirectory()) {
+					return findContentFiles(fullPath, type);
+				}
+				if (entry.isFile() && pattern.test(entry.name)) {
+					return [fullPath];
+				}
+				return [];
+			}),
+		);
+
+		return nested.flat();
 	}
 
-	function findContentConfigs(dir: string): string[] {
-		const configs: string[] = [];
-		if (!existsSync(dir)) return configs;
-
-		for (const entry of readdirSync(dir, { withFileTypes: true })) {
-			const fullPath = join(dir, entry.name);
-			if (entry.isDirectory()) {
-				configs.push(...findContentConfigs(fullPath));
-			} else if (entry.isFile() && CONTENT_CONFIG_PATTERN.test(entry.name)) {
-				configs.push(fullPath);
-			}
+	async function findContentConfigs(dir: string): Promise<string[]> {
+		try {
+			await access(dir);
+		} catch {
+			return [];
 		}
-		return configs;
+
+		const entries = await readdir(dir, { withFileTypes: true });
+
+		const nested = await Promise.all(
+			entries.map(async (entry) => {
+				const fullPath = join(dir, entry.name);
+				if (entry.isDirectory()) {
+					return findContentConfigs(fullPath);
+				}
+				if (entry.isFile() && CONTENT_CONFIG_PATTERN.test(entry.name)) {
+					return [fullPath];
+				}
+				return [];
+			}),
+		);
+
+		return nested.flat();
 	}
 
 	function deriveSlug(filePath: string): string {
@@ -233,12 +256,12 @@ export function vikeContentCollectionPlugin(
 		return config.slug(input);
 	}
 
-	function buildEntry(
+	async function buildEntry(
 		filePath: string,
 		config: ResolvedContentConfig,
-		index: Record<string, CollectionEntry>,
-	): CollectionEntry {
-		const raw = readFileSync(filePath, "utf-8");
+		lastModifiedMap?: Map<string, Date | undefined>,
+	): Promise<CollectionEntry> {
+		const raw = await readFile(filePath, "utf-8");
 
 		let rawMetadata: Record<string, unknown>;
 		let content: string;
@@ -275,7 +298,7 @@ export function vikeContentCollectionPlugin(
 		};
 		const computed = computeFields(config, computedInput);
 
-		const lm = options.lastModified ? getLastModified(filePath) : undefined;
+		const lm = lastModifiedMap?.get(filePath);
 
 		return {
 			filePath,
@@ -286,7 +309,7 @@ export function vikeContentCollectionPlugin(
 			lastModified: lm,
 			_isDraft: isDraft,
 			lineMap,
-			index,
+			index: {},
 		};
 	}
 
@@ -295,17 +318,26 @@ export function vikeContentCollectionPlugin(
 		const name = deriveCollectionName(configPath);
 		const config = await loadContentConfig(configPath);
 		const mdDir = resolveMarkdownDir(name, config.contentPath);
-		const files = findContentFiles(mdDir, config.type);
+		const files = await findContentFiles(mdDir, config.type);
+
+		let lastModifiedMap: Map<string, Date | undefined> | undefined;
+		if (options.lastModified && files.length > 0) {
+			lastModifiedMap = await getLastModifiedBatch(files, root);
+		}
+
+		const allEntries = await Promise.all(
+			files.map((file) => buildEntry(file, config, lastModifiedMap)),
+		);
 
 		const entries: CollectionEntry[] = [];
 		const index: Record<string, CollectionEntry> = {};
 		const includeDrafts = shouldIncludeDrafts();
 
-		for (const file of files) {
-			const entry = buildEntry(file, config, index);
+		for (const entry of allEntries) {
 			if (!includeDrafts && entry._isDraft) continue;
 			entries.push(entry);
 			index[entry.slug] = entry;
+			entry.index = index;
 		}
 
 		store.set(configDir, {
@@ -337,17 +369,20 @@ export function vikeContentCollectionPlugin(
 		const existingCollection = store.get(collection.configDir);
 		if (!existingCollection) return;
 
-		const index = Object.fromEntries(
-			existingCollection.entries.map((e) => [e.slug, e]),
-		);
-
-		if (!existsSync(file)) {
+		try {
+			await access(file);
+		} catch {
 			const slug = deriveSlug(file);
 			store.removeEntry(collection.configDir, slug);
 			return;
 		}
 
-		const entry = buildEntry(file, config, index);
+		let lastModifiedMap: Map<string, Date | undefined> | undefined;
+		if (options.lastModified) {
+			lastModifiedMap = await getLastModifiedBatch([file], root);
+		}
+
+		const entry = await buildEntry(file, config, lastModifiedMap);
 		const includeDrafts = shouldIncludeDrafts();
 
 		if (!includeDrafts && entry._isDraft) {
@@ -361,7 +396,8 @@ export function vikeContentCollectionPlugin(
 	async function scanAndProcess(): Promise<void> {
 		store.clear();
 		configCache.clear();
-		const configFiles = findContentConfigs(getConfigRoot());
+		jitiInstance = null;
+		const configFiles = await findContentConfigs(getConfigRoot());
 
 		for (const configPath of configFiles) {
 			const configDir = dirname(configPath);
@@ -377,21 +413,27 @@ export function vikeContentCollectionPlugin(
 			});
 		}
 
-		generateDeclarationFile(store, root);
+		await generateDeclarationFile(store, root);
 
-		for (const configPath of configFiles) {
-			try {
-				await processCollection(configPath);
-			} catch (error) {
-				const name = deriveCollectionName(configPath);
-				console.error(
-					`[vike-content-collection] Failed to process collection "${name}":`,
-					error instanceof Error ? error.message : error,
-				);
-			}
+		await Promise.allSettled(
+			configFiles.map(async (configPath) => {
+				try {
+					await processCollection(configPath);
+				} catch (error) {
+					const name = deriveCollectionName(configPath);
+					console.error(
+						`[vike-content-collection] Failed to process collection "${name}":`,
+						error instanceof Error ? error.message : error,
+					);
+				}
+			}),
+		);
+
+		const schemaMap = new Map<string, unknown>();
+		for (const [path, config] of configCache.entries()) {
+			schemaMap.set(path, config.schema);
 		}
-
-		validateReferences(store);
+		validateReferenceFields(store, schemaMap);
 	}
 
 	return {
@@ -478,8 +520,12 @@ export function vikeContentCollectionPlugin(
 				);
 			}
 
-			validateReferences(store);
-			generateDeclarationFile(store, root);
+			const schemaMap = new Map<string, unknown>();
+			for (const [path, config] of configCache.entries()) {
+				schemaMap.set(path, config.schema);
+			}
+			validateReferenceFields(store, schemaMap);
+			await generateDeclarationFile(store, root);
 
 			const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_MODULE_ID);
 			if (mod) {
