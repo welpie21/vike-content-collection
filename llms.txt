@@ -6,7 +6,7 @@
 
 - [Getting Started](docs/getting-started.md): Installation, project setup (Vite plugin, Vike config, tsconfig), creating your first collection, project structure
 - [Defining Collections](docs/defining-collections.md): Schema formats (simple and extended), export styles, collection naming, content (md/mdx) vs data collections, content directory configuration, validation errors
-- [Querying Data](docs/querying-data.md): getCollection(), getCollectionEntry() with all filter types, entry shape, usage patterns (blog listing, single post, combining collections, pagination)
+- [Querying Data](docs/querying-data.md): getCollection(), getCollectionEntry() for slug lookup, findCollectionEntries() for filtering, entry shape, usage patterns (blog listing, single post, combining collections, pagination)
 - [Rendering Content](docs/rendering.md): renderEntry() for content-to-HTML, MDX rendering, custom renderers (ContentRenderer interface), extractHeadings(), custom remark/rehype plugins
 - [TypeScript Setup](docs/typescript-setup.md): Generated declaration file, tsconfig.json configuration, virtual module type declaration, how CollectionMap augmentation works, troubleshooting
 - [Advanced Features](docs/advanced-features.md): Computed fields, collection references, custom slugs, draft mode, sorting, pagination, grouping, breadcrumbs, next/previous navigation, TOC tree, collection tree, related entries, merge collections, unique values, entry URL, content series, i18n locales, git last modified, custom content renderers, virtual module, plugin options
@@ -17,7 +17,8 @@
 Functions exported from `vike-content-collection`:
 - `vikeContentCollectionPlugin(options?)` -- Vite plugin factory (also the default export)
 - `getCollection(name)` -- retrieve all entries of a collection, fully typed
-- `getCollectionEntry(name, filter)` -- retrieve entries by slug (string), pattern (RegExp), predicate (function), or array of filters
+- `getCollectionEntry(name, slug)` -- look up a single entry by slug, returns entry or undefined
+- `findCollectionEntries(name, filter)` -- find entries by pattern (RegExp), predicate (function), or array of filters
 - `renderEntry(entry, options?)` -- render content entry to HTML using default or custom renderer, returns `{ html, headings }`
 - `extractHeadings(content)` -- extract headings from raw markdown without full render
 - `createMarkdownRenderer(defaults?)` -- create a markdown renderer (default, used by renderEntry when no renderer specified)

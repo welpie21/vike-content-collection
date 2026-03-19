@@ -251,7 +251,7 @@ export type CollectionEntryFilter<T, C = Record<string, unknown>> =
 	| RegExp
 	| CollectionEntryPredicate<T, C>;
 
-/** One or more filter criteria. An array matches entries against each filter with OR semantics. */
+/** One or more filter criteria for `findCollectionEntries()`. An array matches entries against each filter with OR semantics. */
 export type CollectionEntryFilterInput<T, C = Record<string, unknown>> =
 	| CollectionEntryFilter<T, C>
 	| CollectionEntryFilter<T, C>[];

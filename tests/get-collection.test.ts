@@ -5,6 +5,7 @@ import {
 	resetGlobalStore,
 } from "../src/plugin/collection-store";
 import {
+	findCollectionEntries,
 	getCollection,
 	getCollectionEntry,
 } from "../src/runtime/get-collection";
@@ -186,35 +187,6 @@ describe("getCollectionEntry", () => {
 		);
 	});
 
-	it("filters entries with a predicate function", () => {
-		const store = getGlobalStore();
-		store.set("/pages/blog", makeCollection("blog", "/pages/blog", 5));
-
-		const entries = getCollectionEntry(
-			"blog",
-			(e) => (e.metadata as Record<string, any>).index >= 3,
-		);
-
-		expect(entries).toBeArray();
-		expect(entries).toHaveLength(2);
-		expect((entries as { filePath: string }[])[0].filePath).toBe(
-			"/pages/blog/post-3.md",
-		);
-		expect((entries as { filePath: string }[])[1].filePath).toBe(
-			"/pages/blog/post-4.md",
-		);
-	});
-
-	it("returns empty array when no entries match the predicate", () => {
-		const store = getGlobalStore();
-		store.set("/pages/blog", makeCollection("blog", "/pages/blog", 3));
-
-		const entries = getCollectionEntry("blog", () => false);
-
-		expect(entries).toBeArray();
-		expect(entries).toHaveLength(0);
-	});
-
 	it("does not include lineMap in returned entry", () => {
 		const store = getGlobalStore();
 		store.set("/pages/blog", makeCollection("blog", "/pages/blog", 1));
@@ -234,5 +206,73 @@ describe("getCollectionEntry", () => {
 		const entry = getCollectionEntry("docs/guides", "post-0");
 
 		expect(entry?.filePath).toBe("/pages/docs/guides/post-0.md");
+	});
+});
+
+describe("findCollectionEntries", () => {
+	beforeEach(() => {
+		resetGlobalStore();
+	});
+
+	it("filters entries with a predicate function", () => {
+		const store = getGlobalStore();
+		store.set("/pages/blog", makeCollection("blog", "/pages/blog", 5));
+
+		const entries = findCollectionEntries(
+			"blog",
+			(e) => (e.metadata as Record<string, any>).index >= 3,
+		);
+
+		expect(entries).toBeArray();
+		expect(entries).toHaveLength(2);
+		expect(entries[0].filePath).toBe("/pages/blog/post-3.md");
+		expect(entries[1].filePath).toBe("/pages/blog/post-4.md");
+	});
+
+	it("returns empty array when no entries match the predicate", () => {
+		const store = getGlobalStore();
+		store.set("/pages/blog", makeCollection("blog", "/pages/blog", 3));
+
+		const entries = findCollectionEntries("blog", () => false);
+
+		expect(entries).toBeArray();
+		expect(entries).toHaveLength(0);
+	});
+
+	it("filters entries by RegExp", () => {
+		const store = getGlobalStore();
+		store.set("/pages/blog", makeCollection("blog", "/pages/blog", 5));
+
+		const entries = findCollectionEntries("blog", /post-[0-2]/);
+
+		expect(entries).toBeArray();
+		expect(entries).toHaveLength(3);
+	});
+
+	it("filters entries by array of filters (OR semantics)", () => {
+		const store = getGlobalStore();
+		store.set("/pages/blog", makeCollection("blog", "/pages/blog", 5));
+
+		const entries = findCollectionEntries("blog", ["post-0", /post-4/]);
+
+		expect(entries).toBeArray();
+		expect(entries).toHaveLength(2);
+		expect(entries[0].filePath).toBe("/pages/blog/post-0.md");
+		expect(entries[1].filePath).toBe("/pages/blog/post-4.md");
+	});
+
+	it("throws for unknown collection", () => {
+		expect(() => findCollectionEntries("missing", /./)).toThrow(
+			/Collection "missing" not found/,
+		);
+	});
+
+	it("does not include lineMap in returned entries", () => {
+		const store = getGlobalStore();
+		store.set("/pages/blog", makeCollection("blog", "/pages/blog", 1));
+
+		const entries = findCollectionEntries("blog", () => true);
+
+		expect(entries[0]).not.toHaveProperty("lineMap");
 	});
 });

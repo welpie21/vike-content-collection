@@ -84,7 +84,7 @@ The collection name is automatically derived from the directory path of `+Conten
 | `pages/docs/guides/+Content.ts` | `"docs/guides"` |
 | `pages/+Content.ts`             | `"."`           |
 
-This name is what you pass to `getCollection()` and `getCollectionEntry()`.
+This name is what you pass to `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()`.
 
 ## Content collections (markdown and MDX)
 

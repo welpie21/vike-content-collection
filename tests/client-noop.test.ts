@@ -46,6 +46,7 @@ describe("client-side noop", () => {
 
 		expect(code).toContain("export const getCollection");
 		expect(code).toContain("export const getCollectionEntry");
+		expect(code).toContain("export const findCollectionEntries");
 		expect(code).toContain("export const paginate");
 		expect(code).toContain("export const sortCollection");
 		expect(code).toContain("export const reference");
@@ -77,6 +78,14 @@ describe("client-side noop", () => {
 		const mod = evaluateNoopModule(code);
 
 		expect(mod.getCollectionEntry()).toBeUndefined();
+	});
+
+	it("noop findCollectionEntries returns empty array", async () => {
+		const plugin = createPlugin();
+		const code = plugin.load("\0vike-content-collection-noop");
+		const mod = evaluateNoopModule(code);
+
+		expect(mod.findCollectionEntries()).toEqual([]);
 	});
 
 	it("noop renderEntry returns empty html and headings", async () => {

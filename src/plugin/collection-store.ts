@@ -9,7 +9,6 @@ export interface CollectionEntry {
 	lastModified: Date | undefined;
 	_isDraft: boolean;
 	lineMap: MetadataLineMap;
-	index: Record<string, CollectionEntry>;
 }
 
 export interface Collection {
@@ -19,6 +18,7 @@ export interface Collection {
 	configPath: string;
 	markdownDir: string;
 	entries: CollectionEntry[];
+	index: Map<string, CollectionEntry>;
 }
 
 /**
@@ -63,29 +63,22 @@ export class CollectionStore {
 		const collection = this.collections.get(configDir);
 		if (!collection) return;
 		const idx = collection.entries.findIndex((e) => e.slug === entry.slug);
+
 		if (idx >= 0) {
 			collection.entries[idx] = entry;
 		} else {
 			collection.entries.push(entry);
 		}
-		entry.index = Object.fromEntries(
-			collection.entries.map((e) => [e.slug, e]),
-		);
-		for (const e of collection.entries) {
-			e.index = entry.index;
-		}
+
+		collection.index.set(entry.slug, entry);
 	}
 
 	removeEntry(configDir: string, slug: string): void {
 		const collection = this.collections.get(configDir);
 		if (!collection) return;
+
 		collection.entries = collection.entries.filter((e) => e.slug !== slug);
-		const newIndex = Object.fromEntries(
-			collection.entries.map((e) => [e.slug, e]),
-		);
-		for (const e of collection.entries) {
-			e.index = newIndex;
-		}
+		collection.index.delete(slug);
 	}
 
 	/** Serializable snapshot of all collections for virtual module output */

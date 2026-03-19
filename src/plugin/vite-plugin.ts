@@ -29,6 +29,7 @@ const CLIENT_NOOP_CODE = [
 	"export default vikeContentCollectionPlugin;",
 	"export const getCollection = () => [];",
 	"export const getCollectionEntry = () => undefined;",
+	"export const findCollectionEntries = () => [];",
 	"export const paginate = (_entries, _options) => ({ items: [], currentPage: 1, totalPages: 1, totalItems: 0, hasNextPage: false, hasPreviousPage: false });",
 	"export const sortCollection = (entries) => [...entries];",
 	"export const reference = () => ({});",
@@ -344,7 +345,6 @@ export function vikeContentCollectionPlugin(
 			lastModified: lm,
 			_isDraft: isDraft,
 			lineMap,
-			index: {},
 		};
 	}
 
@@ -356,6 +356,7 @@ export function vikeContentCollectionPlugin(
 		const files = await findContentFiles(mdDir, config.type);
 
 		let lastModifiedMap: Map<string, Date | undefined> | undefined;
+
 		if (options.lastModified && files.length > 0) {
 			lastModifiedMap = await getLastModifiedBatch(files, root);
 		}
@@ -365,14 +366,13 @@ export function vikeContentCollectionPlugin(
 		);
 
 		const entries: CollectionEntry[] = [];
-		const index: Record<string, CollectionEntry> = {};
+		const index: Map<string, CollectionEntry> = new Map();
 		const includeDrafts = shouldIncludeDrafts();
 
 		for (const entry of allEntries) {
 			if (!includeDrafts && entry._isDraft) continue;
 			entries.push(entry);
-			index[entry.slug] = entry;
-			entry.index = index;
+			index.set(entry.slug, entry);
 		}
 
 		store.set(configDir, {
@@ -382,6 +382,7 @@ export function vikeContentCollectionPlugin(
 			configPath,
 			markdownDir: mdDir,
 			entries,
+			index,
 		});
 	}
 
@@ -438,6 +439,7 @@ export function vikeContentCollectionPlugin(
 			const configDir = dirname(configPath);
 			const name = deriveCollectionName(configPath);
 			const markdownDir = resolveMarkdownDir(name);
+
 			store.set(configDir, {
 				name,
 				type: "content",
@@ -445,6 +447,7 @@ export function vikeContentCollectionPlugin(
 				configPath,
 				markdownDir,
 				entries: [],
+				index: new Map(),
 			});
 		}
 
@@ -565,8 +568,10 @@ export function vikeContentCollectionPlugin(
 				if (isContentConfig) {
 					const configDir = dirname(file);
 					const name = deriveCollectionName(file);
+
 					if (!store.has(configDir)) {
 						const markdownDir = resolveMarkdownDir(name);
+
 						store.set(configDir, {
 							name,
 							type: "content",
@@ -574,12 +579,15 @@ export function vikeContentCollectionPlugin(
 							configPath: file,
 							markdownDir,
 							entries: [],
+							index: new Map(),
 						});
 					}
+
 					configCache.delete(file);
 					await processCollection(file);
 				} else if (isMarkdown || isDataFile) {
 					const collection = findCollectionForFile(file);
+
 					if (collection) {
 						await processSingleEntry(file, collection);
 					}
