@@ -1,38 +1,23 @@
 import type { MetadataLineMap } from "./markdown.js";
 
 export interface CollectionEntry {
-	/** Absolute path to the source file */
 	filePath: string;
-	/** Unique slug of the entry within the collection */
 	slug: string;
-	/** Validated metadata */
 	metadata: Record<string, unknown>;
-	/** Raw markdown body. Empty string for data entries. */
 	content: string;
-	/** Values produced by computed field functions */
 	computed: Record<string, unknown>;
-	/** Git-based last modification date, if enabled */
 	lastModified: Date | undefined;
-	/** Whether the entry is a draft */
 	_isDraft: boolean;
-	/** Maps metadata key paths to their line numbers for error reporting */
 	lineMap: MetadataLineMap;
-	/** Index of resolved entries by slug */
 	index: Record<string, CollectionEntry>;
 }
 
 export interface Collection {
-	/** Derived collection name (relative path from content root) */
 	name: string;
-	/** Whether this is a 'content' or 'data' collection */
 	type: "content" | "data";
-	/** Directory where the +Content.ts config lives */
 	configDir: string;
-	/** Absolute path to the +Content.ts file */
 	configPath: string;
-	/** Directory where content/data files are searched */
 	markdownDir: string;
-	/** Resolved entries for this collection */
 	entries: CollectionEntry[];
 }
 

@@ -745,8 +745,6 @@ import type {
   ResolvedContentConfig,
   ComputedFieldInput,
   SlugInput,
-  CollectionEntry,
-  Collection,
   CollectionMap,
   TypedCollectionEntry,
   CollectionEntryFilter,
@@ -781,10 +779,8 @@ import type {
 | `ResolvedContentConfig` | Normalized config after resolving schema or definition |
 | `ComputedFieldInput` | Input to computed field functions |
 | `SlugInput` | Input to custom slug functions |
-| `CollectionEntry` | A single validated entry |
-| `Collection` | A full collection with name, type, config path, and entries |
 | `CollectionMap` | Augmentable interface mapping collection names to types |
-| `TypedCollectionEntry<T>` | Entry with typed metadata |
+| `TypedCollectionEntry<T, C>` | A single collection entry with typed metadata and computed fields |
 | `CollectionEntryFilter<T>` | Single filter: `string`, `RegExp`, or predicate |
 | `CollectionEntryFilterInput<T>` | One or more filters for `getCollectionEntry()` |
 | `CollectionEntryPredicate<T>` | Predicate function for filtering entries |

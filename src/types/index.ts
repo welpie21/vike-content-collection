@@ -1,9 +1,5 @@
 import type { ZodSchema } from "zod";
 
-export type {
-	Collection,
-	CollectionEntry,
-} from "../plugin/collection-store.js";
 export type { ValidationIssue } from "../plugin/errors.js";
 export type { MetadataLineMap, ParsedMarkdown } from "../plugin/markdown.js";
 export type { ContentCollectionPluginOptions } from "../plugin/vite-plugin.js";
@@ -59,18 +55,29 @@ export interface ResolvedContentConfig {
 // biome-ignore lint/suspicious/noEmptyInterface: intentional empty interface for declaration merging
 export interface CollectionMap {}
 
+/**
+ * A single entry in a content collection, with typed metadata and computed fields.
+ *
+ * Returned by `getCollection()`, `getCollectionEntry()`, and all other
+ * runtime query functions. The type parameters are inferred automatically
+ * when the generated declaration file augments `CollectionMap`.
+ */
 export interface TypedCollectionEntry<
 	TMetadata,
 	TComputed = Record<string, unknown>,
 > {
+	/** Absolute path to the source file. */
 	filePath: string;
+	/** Identifier derived from the filename (or a custom slug function). */
 	slug: string;
+	/** Validated frontmatter (content collections) or parsed data (data collections). */
 	metadata: TMetadata;
+	/** Raw markdown body. Empty string for data-only entries. */
 	content: string;
+	/** Values produced by computed field functions defined in `+Content.ts`. */
 	computed: TComputed;
+	/** Git-based last-modification date, if the `lastModified` plugin option is enabled. */
 	lastModified: Date | undefined;
-	_isDraft: boolean;
-	index: Record<string, TypedCollectionEntry<TMetadata, TComputed>>;
 }
 
 /** Extract the metadata type from a CollectionMap entry (supports both old and new format). */

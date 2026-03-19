@@ -38,8 +38,6 @@ export type {
 	AdjacentEntries,
 	Breadcrumb,
 	BreadcrumbOptions,
-	Collection,
-	CollectionEntry,
 	CollectionEntryFilter,
 	CollectionEntryFilterInput,
 	CollectionEntryPredicate,

@@ -31,6 +31,7 @@ function buildTypedIndex<TM, TC>(
 	index: Record<string, CollectionEntry>,
 ): Record<string, TypedCollectionEntry<TM, TC>> {
 	const typedIndex: Record<string, TypedCollectionEntry<TM, TC>> = {};
+
 	for (const [slug, entry] of Object.entries(index)) {
 		typedIndex[slug] = {
 			filePath: entry.filePath,
@@ -39,10 +40,9 @@ function buildTypedIndex<TM, TC>(
 			content: entry.content,
 			computed: entry.computed as TC,
 			lastModified: entry.lastModified,
-			_isDraft: entry._isDraft,
-			index: typedIndex,
 		};
 	}
+
 	return typedIndex;
 }
 
