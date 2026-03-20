@@ -32,7 +32,7 @@ const CLIENT_NOOP_CODE = [
 	"export const findCollectionEntries = () => [];",
 	"export const paginate = (_entries, _options) => ({ items: [], currentPage: 1, totalPages: 1, totalItems: 0, hasNextPage: false, hasPreviousPage: false });",
 	"export const sortCollection = (entries) => [...entries];",
-	"export const reference = () => ({});",
+	"export const reference = () => { const s = () => s; s.array = s; s.optional = s; s.nullable = s; s.default = s; s.describe = s; s.safeParse = () => ({ success: true, data: '' }); s.parse = (v) => v; return s; };",
 	"export const renderEntry = async () => ({ html: '', headings: [] });",
 	"export const extractHeadings = async () => [];",
 	"export const createMarkdownRenderer = () => ({ render: async () => ({ html: '', headings: [] }) });",
