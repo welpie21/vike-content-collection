@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { vikeContentCollectionPlugin } from "../src/plugin/vite-plugin";
 
-function createPlugin() {
+function createPlugin(
+	resolvedConfig: Record<string, any> = { root: "/tmp/test-project" },
+) {
 	const plugin = vikeContentCollectionPlugin() as Record<string, any>;
-	plugin.configResolved({ root: "/tmp/test-project" });
+	plugin.configResolved(resolvedConfig);
 	return plugin;
 }
 
@@ -119,6 +121,42 @@ describe("client-side noop", () => {
 			hasNextPage: false,
 			hasPreviousPage: false,
 		});
+	});
+
+	it("accepts configResolved with resolve.alias entries", () => {
+		const plugin = createPlugin({
+			root: "/tmp/test-project",
+			resolve: {
+				alias: [
+					{ find: "~", replacement: "/tmp/test-project/src" },
+					{
+						find: "@components",
+						replacement: "/tmp/test-project/src/components",
+					},
+					{ find: /^\/regex-alias/, replacement: "/should-be-skipped" },
+				],
+			},
+		});
+		expect(plugin.resolveId("virtual:content-collection")).toBe(
+			"\0virtual:content-collection",
+		);
+	});
+
+	it("handles configResolved without resolve property", () => {
+		const plugin = createPlugin({ root: "/tmp/test-project" });
+		expect(plugin.resolveId("virtual:content-collection")).toBe(
+			"\0virtual:content-collection",
+		);
+	});
+
+	it("handles configResolved with empty alias array", () => {
+		const plugin = createPlugin({
+			root: "/tmp/test-project",
+			resolve: { alias: [] },
+		});
+		expect(plugin.resolveId("virtual:content-collection")).toBe(
+			"\0virtual:content-collection",
+		);
 	});
 });
 

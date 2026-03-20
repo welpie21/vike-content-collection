@@ -37,7 +37,8 @@ Functions exported from `vike-content-collection`:
 - `getSeries(name, slug, seriesName, options?)` -- get ordered content series with navigation
 - `getAvailableLocales(name, baseSlug, options?)` -- get available locales for an entry
 - `getLocalizedEntry(name, baseSlug, locale, options?)` -- get a localized version of an entry
-- `reference(collectionName)` -- create a cross-collection reference Zod schema
+- `reference(collectionName: CollectionName)` -- create a cross-collection reference Zod schema (typed argument autocompletes to known collection names)
+- `defineCollection(config)` -- type-safe collection definition helper; infers metadata type for `slug` and `computed` callbacks
 
 Config export from `vike-content-collection/config`:
 - Default export extending Vike config to recognize `+Content.ts` files

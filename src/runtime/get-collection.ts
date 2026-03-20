@@ -143,15 +143,60 @@ export function findCollectionEntries(
 	filter: Exclude<CollectionEntryFilterInput<Record<string, unknown>>, string>,
 ): TypedCollectionEntry<Record<string, unknown>>[] {
 	const collection = resolveCollection(name);
-	const entries = collection.entries.map(toTypedEntry);
 
 	if (Array.isArray(filter)) {
-		return entries.filter((e) => filter.some((f) => matchesFilter(e, f)));
+		const stringFilters: string[] = [];
+		const otherFilters: CollectionEntryFilter<
+			Record<string, unknown>,
+			Record<string, unknown>
+		>[] = [];
+
+		for (const f of filter) {
+			if (typeof f === "string") {
+				stringFilters.push(f);
+			} else {
+				otherFilters.push(f);
+			}
+		}
+
+		const result: TypedCollectionEntry<Record<string, unknown>>[] = [];
+		const seen = new Set<string>();
+
+		for (const slug of stringFilters) {
+			if (seen.has(slug)) continue;
+			const entry = collection.index.get(slug);
+			if (entry) {
+				result.push(toTypedEntry(entry));
+				seen.add(slug);
+			}
+		}
+
+		if (otherFilters.length > 0) {
+			for (const raw of collection.entries) {
+				if (seen.has(raw.slug)) continue;
+				const typed = toTypedEntry(raw);
+				if (otherFilters.some((f) => matchesFilter(typed, f))) {
+					result.push(typed);
+					seen.add(raw.slug);
+				}
+			}
+		}
+
+		return result;
 	}
 
 	if (filter instanceof RegExp) {
-		return entries.filter((e) => filter.test(e.slug));
+		return collection.entries
+			.filter((e) => filter.test(e.slug))
+			.map(toTypedEntry);
 	}
 
-	return entries.filter(filter);
+	const result: TypedCollectionEntry<Record<string, unknown>>[] = [];
+	for (const raw of collection.entries) {
+		const typed = toTypedEntry(raw);
+		if (filter(typed)) {
+			result.push(typed);
+		}
+	}
+	return result;
 }

@@ -377,7 +377,7 @@ posts[0].computed.excerpt     // string
 
 ### Collection references
 
-Use `reference()` to validate that a metadata field points to an existing slug in another collection:
+Use `reference()` to validate that a metadata field points to an existing slug in another collection. The argument is typed — it autocompletes to known collection names when generated types are present:
 
 ```ts
 import { z } from 'zod'
@@ -395,17 +395,19 @@ After all collections are loaded, the plugin runs a cross-collection validation 
 
 ### Custom slugs
 
-By default, slugs come from the filename (minus extension). Override with a `slug` function:
+By default, slugs come from the filename (minus extension). Override with a `slug` function. Use `defineCollection()` for typed `metadata`:
 
 ```ts
-export const Content = {
+import { defineCollection } from 'vike-content-collection'
+
+export const Content = defineCollection({
   schema: z.object({
     title: z.string(),
     permalink: z.string().optional()
   }),
   slug: ({ metadata, filePath, defaultSlug }) =>
-    metadata.permalink ?? defaultSlug,
-}
+    metadata.permalink ?? defaultSlug, // ← fully typed
+})
 ```
 
 ---
@@ -739,6 +741,7 @@ import {
   getAvailableLocales,          // available locales for an entry
   getLocalizedEntry,            // localized version of an entry
   reference,                    // cross-collection reference schema
+  defineCollection,             // type-safe collection definition helper
 } from 'vike-content-collection'
 ```
 
@@ -753,6 +756,7 @@ import type {
   ComputedFieldInput,
   SlugInput,
   CollectionMap,
+  CollectionName,
   TypedCollectionEntry,
   CollectionEntryFilter,
   CollectionEntryFilterInput,
@@ -786,6 +790,7 @@ import type {
 | `ResolvedContentConfig` | Normalized config after resolving schema or definition |
 | `ComputedFieldInput` | Input to computed field functions |
 | `SlugInput` | Input to custom slug functions |
+| `CollectionName` | Union of known collection names (falls back to `string` before type generation) |
 | `CollectionMap` | Augmentable interface mapping collection names to types |
 | `TypedCollectionEntry<T, C>` | A single collection entry with typed metadata and computed fields |
 | `CollectionEntryFilter<T>` | Single filter: `string`, `RegExp`, or predicate |

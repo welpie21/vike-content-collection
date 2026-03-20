@@ -58,7 +58,7 @@ function stripInlineFormatting(raw: string): string {
  * fenced code blocks. Inline markdown formatting is stripped to produce
  * plain-text heading labels.
  */
-export async function extractHeadings(content: string): Promise<Heading[]> {
+export function extractHeadings(content: string): Heading[] {
 	const headings: Heading[] = [];
 	const slugger = new GithubSlugger();
 	const lines = content.split("\n");

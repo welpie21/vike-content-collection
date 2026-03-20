@@ -33,9 +33,11 @@ const TYPE_HELPERS =
 	`  : M extends { default: { Content: infer C } } ? _ResolveSchema<C>\n` +
 	`  : M extends { default: infer D } ? _ResolveSchema<D>\n` +
 	`  : never\n` +
-	`type _ExtractComputed<C> = C extends { computed: infer Comp }\n` +
-	`  ? { [K in keyof Comp]: Comp[K] extends (...args: any[]) => infer R ? R : never }\n` +
-	`  : Record<string, never>\n` +
+	`type _ExtractComputed<C> = C extends { _computedReturns: infer R }\n` +
+	`  ? NonNullable<R>\n` +
+	`  : C extends { computed: infer Comp }\n` +
+	`    ? { [K in keyof NonNullable<Comp>]: NonNullable<Comp>[K] extends (...args: any[]) => infer R ? R : never }\n` +
+	`    : Record<string, never>\n` +
 	`type _ResolveComputed<M> = M extends { Content: infer C } ? _ExtractComputed<C>\n` +
 	`  : M extends { default: { Content: infer C } } ? _ExtractComputed<C>\n` +
 	`  : M extends { default: infer D } ? _ExtractComputed<D>\n` +

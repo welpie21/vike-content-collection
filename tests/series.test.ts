@@ -11,26 +11,20 @@ function makeSeriesCollection(
 	configDir: string,
 	items: { slug: string; series?: string; seriesOrder?: number }[],
 ): Collection {
-	const index: Record<string, Collection["entries"][number]> = {};
-	const entries = items.map((item) => {
-		const entry = {
-			filePath: `${configDir}/${item.slug}.md`,
-			slug: item.slug,
-			metadata: {
-				title: item.slug,
-				series: item.series,
-				seriesOrder: item.seriesOrder,
-			},
-			content: `Body of ${item.slug}`,
-			computed: {},
-			lastModified: undefined,
-			_isDraft: false,
-			lineMap: { title: 2 },
-			index,
-		};
-		index[item.slug] = entry;
-		return entry;
-	});
+	const entries = items.map((item) => ({
+		filePath: `${configDir}/${item.slug}.md`,
+		slug: item.slug,
+		metadata: {
+			title: item.slug,
+			series: item.series,
+			seriesOrder: item.seriesOrder,
+		},
+		content: `Body of ${item.slug}`,
+		computed: {},
+		lastModified: undefined,
+		_isDraft: false,
+		lineMap: { title: 2 },
+	}));
 
 	return {
 		name,
@@ -39,6 +33,7 @@ function makeSeriesCollection(
 		configPath: `${configDir}/+Content.ts`,
 		markdownDir: configDir,
 		entries,
+		index: new Map(entries.map((e) => [e.slug, e])),
 	};
 }
 
@@ -167,9 +162,7 @@ describe("getSeries", () => {
 
 	it("supports custom field names", () => {
 		const store = getGlobalStore();
-		const col = makeSeriesCollection("blog", "/pages/blog", []);
-		const index: Record<string, Collection["entries"][number]> = {};
-		col.entries = [
+		const entries = [
 			{
 				filePath: "/pages/blog/a.md",
 				slug: "a",
@@ -179,7 +172,6 @@ describe("getSeries", () => {
 				lastModified: undefined,
 				_isDraft: false,
 				lineMap: {},
-				index,
 			},
 			{
 				filePath: "/pages/blog/b.md",
@@ -190,12 +182,17 @@ describe("getSeries", () => {
 				lastModified: undefined,
 				_isDraft: false,
 				lineMap: {},
-				index,
 			},
 		];
-		index.a = col.entries[0];
-		index.b = col.entries[1];
-		store.set("/pages/blog", col);
+		store.set("/pages/blog", {
+			name: "blog",
+			type: "content" as const,
+			configDir: "/pages/blog",
+			configPath: "/pages/blog/+Content.ts",
+			markdownDir: "/pages/blog",
+			entries,
+			index: new Map(entries.map((e) => [e.slug, e])),
+		});
 
 		const result = getSeries("blog", "a", "intro", {
 			seriesField: "course",

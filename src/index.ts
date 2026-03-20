@@ -2,6 +2,7 @@ export {
 	vikeContentCollectionPlugin as default,
 	vikeContentCollectionPlugin,
 } from "./plugin/vite-plugin.js";
+export { defineCollection } from "./runtime/define-collection.js";
 export {
 	findCollectionEntries,
 	getCollection,
@@ -43,6 +44,7 @@ export type {
 	CollectionEntryFilterInput,
 	CollectionEntryPredicate,
 	CollectionMap,
+	CollectionName,
 	CollectionTreeNode,
 	ComputedFieldInput,
 	ContentCollectionConfig,

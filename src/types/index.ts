@@ -1,38 +1,44 @@
-import type { ZodSchema } from "zod";
+import type { ZodType } from "zod";
 
 export type { ValidationIssue } from "../plugin/errors.js";
 export type { MetadataLineMap, ParsedMarkdown } from "../plugin/markdown.js";
 export type { ContentCollectionPluginOptions } from "../plugin/vite-plugin.js";
 
 export interface ContentCollectionConfig {
-	Content: ZodSchema;
+	Content: ZodType;
 }
 
+/** Extracts the output type from a Zod schema. */
+type InferZod<S> = S extends ZodType<infer T> ? T : Record<string, unknown>;
+
 /** Input passed to computed field functions. */
-export interface ComputedFieldInput {
-	metadata: Record<string, unknown>;
+export interface ComputedFieldInput<TMetadata = Record<string, unknown>> {
+	metadata: TMetadata;
 	content: string;
 	filePath: string;
 	slug: string;
 }
 
 /** Input passed to custom slug functions. */
-export interface SlugInput {
-	metadata: Record<string, unknown>;
+export interface SlugInput<TMetadata = Record<string, unknown>> {
+	metadata: TMetadata;
 	filePath: string;
 	defaultSlug: string;
 }
 
 /** Extended config object for +Content.ts that supports computed fields, custom slugs, etc. */
-export interface ContentCollectionDefinition {
+export interface ContentCollectionDefinition<S extends ZodType = ZodType> {
 	/** Whether this is a markdown content collection or a data-only collection. Defaults to 'content'. */
 	type?: "content" | "data";
 	/** Zod schema for validating metadata (content) or the full data file (data). */
-	schema: ZodSchema;
+	schema: S;
 	/** Functions that derive additional data from each entry. */
-	computed?: Record<string, (input: ComputedFieldInput) => unknown>;
+	computed?: Record<
+		string,
+		(input: ComputedFieldInput<InferZod<S>>) => unknown
+	>;
 	/** Custom slug generation function. */
-	slug?: (input: SlugInput) => string;
+	slug?: (input: SlugInput<InferZod<S>>) => string;
 	/** Override the folder inside the content root to fetch files from.
 	 *  By default, the collection name (derived from the +Content.ts path) is used. */
 	contentPath?: string;
@@ -41,7 +47,7 @@ export interface ContentCollectionDefinition {
 /** Resolved config after normalizing a plain schema or definition object. */
 export interface ResolvedContentConfig {
 	type: "content" | "data";
-	schema: ZodSchema;
+	schema: ZodType;
 	computed: Record<string, (input: ComputedFieldInput) => unknown>;
 	slug: ((input: SlugInput) => string) | null;
 	contentPath: string | null;
@@ -54,6 +60,15 @@ export interface ResolvedContentConfig {
  */
 // biome-ignore lint/suspicious/noEmptyInterface: intentional empty interface for declaration merging
 export interface CollectionMap {}
+
+/**
+ * Resolves to the union of known collection names when `CollectionMap` is
+ * populated by the generated declaration file, otherwise falls back to
+ * `string` so code still compiles before type generation.
+ */
+export type CollectionName = keyof CollectionMap extends never
+	? string
+	: keyof CollectionMap;
 
 /**
  * A single entry in a content collection, with typed metadata and computed fields.

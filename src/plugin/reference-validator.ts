@@ -36,7 +36,7 @@ export function validateReferenceFields(
 						);
 						continue;
 					}
-					const exists = target.entries.some((e) => e.slug === slug);
+					const exists = target.index.has(slug);
 					if (!exists) {
 						errors.push(
 							`${entry.filePath}: references slug "${slug}" in collection "${targetCollection}" which does not exist (field "${path}")`,

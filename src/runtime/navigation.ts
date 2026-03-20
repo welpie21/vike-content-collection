@@ -115,15 +115,21 @@ export function getCollectionTree(): CollectionTreeNode[] {
 	const collectionNames = new Set(collections.map((c) => c.name));
 
 	const root: CollectionTreeNode[] = [];
+	const rootLookup = new Map<string, CollectionTreeNode>();
+	const childLookups = new Map<
+		CollectionTreeNode,
+		Map<string, CollectionTreeNode>
+	>();
 
 	for (const name of collectionNames) {
 		const segments = name.split("/").filter(Boolean);
 		let currentLevel = root;
+		let currentLookup = rootLookup;
 
 		for (let i = 0; i < segments.length; i++) {
 			const segment = segments[i];
 			const fullPath = segments.slice(0, i + 1).join("/");
-			let existing = currentLevel.find((n) => n.name === segment);
+			let existing = currentLookup.get(segment);
 
 			if (!existing) {
 				existing = {
@@ -132,11 +138,14 @@ export function getCollectionTree(): CollectionTreeNode[] {
 					children: [],
 				};
 				currentLevel.push(existing);
+				currentLookup.set(segment, existing);
+				childLookups.set(existing, new Map());
 			} else if (!existing.fullName && collectionNames.has(fullPath)) {
 				existing.fullName = fullPath;
 			}
 
 			currentLevel = existing.children;
+			currentLookup = childLookups.get(existing) ?? new Map();
 		}
 	}
 
