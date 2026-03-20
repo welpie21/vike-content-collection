@@ -26,25 +26,18 @@ interface TaggedMetadata {
 }
 
 function makeEntries(count: number): TypedCollectionEntry<TestMetadata>[] {
-	const index: Record<string, TypedCollectionEntry<TestMetadata>> = {};
-	return Array.from({ length: count }, (_, i) => {
-		const entry: TypedCollectionEntry<TestMetadata> = {
-			filePath: `/pages/blog/post-${i}.md`,
-			slug: `post-${i}`,
-			metadata: {
-				title: `Post ${String.fromCharCode(90 - i)}`,
-				date: new Date(`2025-0${(i % 9) + 1}-15`),
-				order: count - i,
-			},
-			content: `Body ${i}`,
-			computed: {},
-			lastModified: undefined,
-			_isDraft: false,
-			index,
-		};
-		index[entry.slug] = entry;
-		return entry;
-	});
+	return Array.from({ length: count }, (_, i) => ({
+		filePath: `/pages/blog/post-${i}.md`,
+		slug: `post-${i}`,
+		metadata: {
+			title: `Post ${String.fromCharCode(90 - i)}`,
+			date: new Date(`2025-0${(i % 9) + 1}-15`),
+			order: count - i,
+		},
+		content: `Body ${i}`,
+		computed: {},
+		lastModified: undefined,
+	}));
 }
 
 describe("sortCollection", () => {
@@ -183,25 +176,18 @@ describe("paginate", () => {
 function makeTaggedEntries(
 	items: Partial<TaggedMetadata>[],
 ): TypedCollectionEntry<TaggedMetadata>[] {
-	const index: Record<string, TypedCollectionEntry<TaggedMetadata>> = {};
-	return items.map((meta, i) => {
-		const entry: TypedCollectionEntry<TaggedMetadata> = {
-			filePath: `/pages/blog/post-${i}.md`,
-			slug: `post-${i}`,
-			metadata: {
-				title: meta.title ?? `Post ${i}`,
-				tags: meta.tags ?? [],
-				category: meta.category,
-			},
-			content: `Body ${i}`,
-			computed: {},
-			lastModified: undefined,
-			_isDraft: false,
-			index,
-		};
-		index[entry.slug] = entry;
-		return entry;
-	});
+	return items.map((meta, i) => ({
+		filePath: `/pages/blog/post-${i}.md`,
+		slug: `post-${i}`,
+		metadata: {
+			title: meta.title ?? `Post ${i}`,
+			tags: meta.tags ?? [],
+			category: meta.category,
+		},
+		content: `Body ${i}`,
+		computed: {},
+		lastModified: undefined,
+	}));
 }
 
 describe("groupBy", () => {
@@ -279,10 +265,9 @@ function makeStoreCollection(
 	configDir: string,
 	entryCount: number,
 ): Collection {
-	const index: Record<string, Collection["entries"][number]> = {};
 	const entries = Array.from({ length: entryCount }, (_, i) => {
 		const slug = `entry-${i}`;
-		const entry = {
+		return {
 			filePath: `${configDir}/${slug}.md`,
 			slug,
 			metadata: { title: `Entry ${i}` },
@@ -291,10 +276,7 @@ function makeStoreCollection(
 			lastModified: undefined,
 			_isDraft: false,
 			lineMap: { title: 2 },
-			index,
 		};
-		index[slug] = entry;
-		return entry;
 	});
 
 	return {
@@ -304,6 +286,7 @@ function makeStoreCollection(
 		configPath: `${configDir}/+Content.ts`,
 		markdownDir: configDir,
 		entries,
+		index: new Map(entries.map((e) => [e.slug, e])),
 	};
 }
 

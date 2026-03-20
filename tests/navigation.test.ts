@@ -16,10 +16,9 @@ function makeCollection(
 	configDir: string,
 	entryCount: number = 1,
 ): Collection {
-	const index: Record<string, Collection["entries"][number]> = {};
 	const entries = Array.from({ length: entryCount }, (_, i) => {
 		const slug = `post-${i}`;
-		const entry = {
+		return {
 			filePath: `${configDir}/${slug}.md`,
 			slug,
 			metadata: { title: `Post ${i}`, order: i },
@@ -28,10 +27,7 @@ function makeCollection(
 			lastModified: undefined,
 			_isDraft: false,
 			lineMap: { title: 2 },
-			index,
 		};
-		index[slug] = entry;
-		return entry;
 	});
 
 	return {
@@ -41,6 +37,7 @@ function makeCollection(
 		configPath: `${configDir}/+Content.ts`,
 		markdownDir: configDir,
 		entries,
+		index: new Map(entries.map((e) => [e.slug, e])),
 	};
 }
 

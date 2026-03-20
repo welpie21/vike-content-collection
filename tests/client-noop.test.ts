@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { vikeContentCollectionPlugin } from "../src/plugin/vite-plugin";
 
-function createPlugin() {
+function createPlugin(
+	resolvedConfig: Record<string, any> = { root: "/tmp/test-project" },
+) {
 	const plugin = vikeContentCollectionPlugin() as Record<string, any>;
-	plugin.configResolved({ root: "/tmp/test-project" });
+	plugin.configResolved(resolvedConfig);
 	return plugin;
 }
 
@@ -46,6 +48,7 @@ describe("client-side noop", () => {
 
 		expect(code).toContain("export const getCollection");
 		expect(code).toContain("export const getCollectionEntry");
+		expect(code).toContain("export const findCollectionEntries");
 		expect(code).toContain("export const paginate");
 		expect(code).toContain("export const sortCollection");
 		expect(code).toContain("export const reference");
@@ -79,6 +82,14 @@ describe("client-side noop", () => {
 		expect(mod.getCollectionEntry()).toBeUndefined();
 	});
 
+	it("noop findCollectionEntries returns empty array", async () => {
+		const plugin = createPlugin();
+		const code = plugin.load("\0vike-content-collection-noop");
+		const mod = evaluateNoopModule(code);
+
+		expect(mod.findCollectionEntries()).toEqual([]);
+	});
+
 	it("noop renderEntry returns empty html and headings", async () => {
 		const plugin = createPlugin();
 		const code = plugin.load("\0vike-content-collection-noop");
@@ -110,6 +121,42 @@ describe("client-side noop", () => {
 			hasNextPage: false,
 			hasPreviousPage: false,
 		});
+	});
+
+	it("accepts configResolved with resolve.alias entries", () => {
+		const plugin = createPlugin({
+			root: "/tmp/test-project",
+			resolve: {
+				alias: [
+					{ find: "~", replacement: "/tmp/test-project/src" },
+					{
+						find: "@components",
+						replacement: "/tmp/test-project/src/components",
+					},
+					{ find: /^\/regex-alias/, replacement: "/should-be-skipped" },
+				],
+			},
+		});
+		expect(plugin.resolveId("virtual:content-collection")).toBe(
+			"\0virtual:content-collection",
+		);
+	});
+
+	it("handles configResolved without resolve property", () => {
+		const plugin = createPlugin({ root: "/tmp/test-project" });
+		expect(plugin.resolveId("virtual:content-collection")).toBe(
+			"\0virtual:content-collection",
+		);
+	});
+
+	it("handles configResolved with empty alias array", () => {
+		const plugin = createPlugin({
+			root: "/tmp/test-project",
+			resolve: { alias: [] },
+		});
+		expect(plugin.resolveId("virtual:content-collection")).toBe(
+			"\0virtual:content-collection",
+		);
 	});
 });
 

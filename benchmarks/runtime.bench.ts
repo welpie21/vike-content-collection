@@ -1,11 +1,24 @@
+import type { CollectionEntry } from "../src/plugin/collection-store";
+import {
+	getGlobalStore,
+	resetGlobalStore,
+} from "../src/plugin/collection-store";
+import {
+	findCollectionEntries,
+	getCollection,
+	getCollectionEntry,
+} from "../src/runtime/get-collection";
 import {
 	groupBy,
 	paginate,
 	sortCollection,
 	uniqueValues,
 } from "../src/runtime/helpers";
+import { getLocalizedEntry } from "../src/runtime/i18n";
 import { getBreadcrumbs, getEntryUrl } from "../src/runtime/navigation";
 import { buildTocTree, extractHeadings } from "../src/runtime/render";
+import { getRelatedEntries } from "../src/runtime/search";
+import { getSeries } from "../src/runtime/series";
 import type { Heading, TypedCollectionEntry } from "../src/types/index";
 import { suite } from "./runner";
 
@@ -48,28 +61,20 @@ const categoryPool = [
 ];
 
 function makeEntries(count: number): TypedCollectionEntry<BlogMetadata>[] {
-	const index: Record<string, TypedCollectionEntry<BlogMetadata>> = {};
-	const entries = Array.from({ length: count }, (_, i) => {
-		const entry: TypedCollectionEntry<BlogMetadata> = {
-			filePath: `/content/blog/post-${i}.md`,
-			slug: `post-${i}`,
-			metadata: {
-				title: `Post ${String.fromCharCode(65 + (i % 26))}${i}`,
-				date: new Date(2025, i % 12, (i % 28) + 1),
-				order: count - i,
-				tags: tagPool.slice(i % tagPool.length, (i % tagPool.length) + 3),
-				category: categoryPool[i % categoryPool.length],
-			},
-			content: `# Post ${i}\n\nContent for post ${i}.\n`,
-			computed: {},
-			lastModified: undefined,
-			_isDraft: false,
-			index,
-		};
-		index[entry.slug] = entry;
-		return entry;
-	});
-	return entries;
+	return Array.from({ length: count }, (_, i) => ({
+		filePath: `/content/blog/post-${i}.md`,
+		slug: `post-${i}`,
+		metadata: {
+			title: `Post ${String.fromCharCode(65 + (i % 26))}${i}`,
+			date: new Date(2025, i % 12, (i % 28) + 1),
+			order: count - i,
+			tags: tagPool.slice(i % tagPool.length, (i % tagPool.length) + 3),
+			category: categoryPool[i % categoryPool.length],
+		},
+		content: `# Post ${i}\n\nContent for post ${i}.\n`,
+		computed: {},
+		lastModified: undefined,
+	}));
 }
 
 const entries100 = makeEntries(100);
@@ -224,6 +229,108 @@ s.add("getEntryUrl", () => {
 		basePath: "/en",
 		extension: ".html",
 	});
+});
+
+// ── Store-backed benchmarks ─────────────────────────────────
+
+function makeStoreEntries(count: number): CollectionEntry[] {
+	return Array.from({ length: count }, (_, i) => ({
+		filePath: `/content/blog/post-${i}.md`,
+		slug: `post-${i}`,
+		metadata: {
+			title: `Post ${String.fromCharCode(65 + (i % 26))}${i}`,
+			date: new Date(2025, i % 12, (i % 28) + 1),
+			order: count - i,
+			tags: tagPool.slice(i % tagPool.length, (i % tagPool.length) + 3),
+			category: categoryPool[i % categoryPool.length],
+			series: i % 3 === 0 ? "main-series" : undefined,
+			seriesOrder: i % 3 === 0 ? i : undefined,
+			locale: undefined,
+		},
+		content: `# Post ${i}\n\nContent for post ${i}.\n`,
+		computed: {},
+		lastModified: undefined,
+		_isDraft: false,
+		lineMap: { title: 2 },
+	}));
+}
+
+function setupStore(count: number) {
+	resetGlobalStore();
+	const store = getGlobalStore();
+	const entries = makeStoreEntries(count);
+	store.set("/content/blog", {
+		name: "blog",
+		type: "content",
+		configDir: "/content/blog",
+		configPath: "/content/blog/+Content.ts",
+		markdownDir: "/content/blog",
+		entries,
+		index: new Map(entries.map((e) => [e.slug, e])),
+	});
+
+	const localeEntries: CollectionEntry[] = [];
+	for (let i = 0; i < 50; i++) {
+		localeEntries.push({
+			filePath: `/content/docs/page-${i}.md`,
+			slug: `page-${i}`,
+			metadata: { title: `Page ${i}`, locale: "en" },
+			content: "",
+			computed: {},
+			lastModified: undefined,
+			_isDraft: false,
+			lineMap: {},
+		});
+		localeEntries.push({
+			filePath: `/content/docs/page-${i}.fr.md`,
+			slug: `page-${i}.fr`,
+			metadata: { title: `Page ${i} FR`, locale: "fr" },
+			content: "",
+			computed: {},
+			lastModified: undefined,
+			_isDraft: false,
+			lineMap: {},
+		});
+	}
+	store.set("/content/docs", {
+		name: "docs",
+		type: "content",
+		configDir: "/content/docs",
+		configPath: "/content/docs/+Content.ts",
+		markdownDir: "/content/docs",
+		entries: localeEntries,
+		index: new Map(localeEntries.map((e) => [e.slug, e])),
+	});
+}
+
+setupStore(1000);
+
+s.add("getCollectionEntry (1000 entries, O(1) index lookup)", () => {
+	getCollectionEntry("blog", "post-500");
+});
+
+s.add("getCollection (1000 entries)", () => {
+	getCollection("blog");
+});
+
+s.add("getRelatedEntries (1000 entries, by tags+category)", () => {
+	getRelatedEntries("blog", "post-0", { by: ["tags", "category"], limit: 5 });
+});
+
+s.add("getLocalizedEntry (suffix, 100 entries)", () => {
+	getLocalizedEntry("docs", "page-25", "fr");
+});
+
+s.add("getSeries (1000 entries)", () => {
+	getSeries("blog", "post-0", "main-series");
+});
+
+s.add("findCollectionEntries (1000 entries, RegExp)", () => {
+	findCollectionEntries("blog", /post-[0-9]$/);
+});
+
+s.add("findCollectionEntries (1000 entries, string array)", () => {
+	findCollectionEntries("blog", ["post-0", "post-500", "post-999"]);
 });
 
 export default s;

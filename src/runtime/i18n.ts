@@ -5,7 +5,7 @@ import type {
 	LocaleOptions,
 	TypedCollectionEntry,
 } from "../types/index.js";
-import { getCollection } from "./get-collection.js";
+import { getCollection, getCollectionEntry } from "./get-collection.js";
 
 /**
  * Get all available locales for a given base slug within a collection.
@@ -96,14 +96,14 @@ export function getLocalizedEntry(
 	options: LocaleOptions = {},
 ): TypedCollectionEntry<Record<string, unknown>> | undefined {
 	const { strategy = "suffix", field = "locale", separator = "." } = options;
-	const entries = getCollection(name);
 
 	if (strategy === "suffix") {
 		const targetSlug =
 			locale === "" ? baseSlug : `${baseSlug}${separator}${locale}`;
-		return entries.find((e) => e.slug === targetSlug);
+		return getCollectionEntry(name, targetSlug);
 	}
 
+	const entries = getCollection(name);
 	return entries.find((e) => {
 		const meta = e.metadata as Record<string, unknown>;
 		const slugMatches =

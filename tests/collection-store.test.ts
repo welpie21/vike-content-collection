@@ -11,10 +11,9 @@ function makeCollection(
 	configDir: string,
 	entryCount: number = 1,
 ): Collection {
-	const index: Record<string, Collection["entries"][number]> = {};
 	const entries = Array.from({ length: entryCount }, (_, i) => {
 		const slug = `post-${i}`;
-		const entry = {
+		return {
 			filePath: `${configDir}/${slug}.md`,
 			slug,
 			metadata: { title: `Post ${i}`, index: i },
@@ -23,10 +22,7 @@ function makeCollection(
 			lastModified: undefined,
 			_isDraft: false,
 			lineMap: { title: 2 },
-			index,
 		};
-		index[slug] = entry;
-		return entry;
 	});
 
 	return {
@@ -36,6 +32,7 @@ function makeCollection(
 		configPath: `${configDir}/+Content.ts`,
 		markdownDir: configDir,
 		entries,
+		index: new Map(entries.map((e) => [e.slug, e])),
 	};
 }
 
@@ -183,7 +180,6 @@ describe("CollectionStore", () => {
 				lastModified: undefined,
 				_isDraft: false,
 				lineMap: { title: 2 },
-				index: {} as Record<string, any>,
 			};
 
 			store.updateEntry("/pages/blog", updated);
@@ -204,7 +200,6 @@ describe("CollectionStore", () => {
 				lastModified: undefined,
 				_isDraft: false,
 				lineMap: { title: 2 },
-				index: {} as Record<string, any>,
 			};
 
 			store.updateEntry("/pages/blog", newEntry);
@@ -223,7 +218,6 @@ describe("CollectionStore", () => {
 				lastModified: undefined,
 				_isDraft: false,
 				lineMap: {},
-				index: {} as Record<string, any>,
 			};
 			store.updateEntry("/pages/missing", entry);
 			expect(store.getAll()).toHaveLength(0);
@@ -256,6 +250,40 @@ describe("CollectionStore", () => {
 			store.removeEntry("/pages/missing", "post-0");
 			expect(store.getAll()).toHaveLength(0);
 		});
+	});
+});
+
+describe("toSerializable with circular metadata", () => {
+	it("produces JSON-safe output when metadata has circular references", () => {
+		const store = new CollectionStore();
+		const circularMeta: Record<string, unknown> = { title: "Test" };
+		circularMeta.self = circularMeta;
+
+		const collection = makeCollection("blog", "/pages/blog", 1);
+		collection.entries[0].metadata = circularMeta;
+
+		store.set("/pages/blog", collection);
+		const serialized = store.toSerializable();
+
+		expect(() => JSON.stringify(serialized)).not.toThrow();
+		expect(serialized["/pages/blog"].entries[0].metadata.title).toBe("Test");
+		expect(serialized["/pages/blog"].entries[0].metadata.self).toBeNull();
+	});
+
+	it("produces JSON-safe output when computed has circular references", () => {
+		const store = new CollectionStore();
+		const circularComputed: Record<string, unknown> = { score: 10 };
+		circularComputed.ref = circularComputed;
+
+		const collection = makeCollection("blog", "/pages/blog", 1);
+		collection.entries[0].computed = circularComputed;
+
+		store.set("/pages/blog", collection);
+		const serialized = store.toSerializable();
+
+		expect(() => JSON.stringify(serialized)).not.toThrow();
+		expect(serialized["/pages/blog"].entries[0].computed.score).toBe(10);
+		expect(serialized["/pages/blog"].entries[0].computed.ref).toBeNull();
 	});
 });
 

@@ -1,6 +1,6 @@
+import { readFileSync } from "node:fs";
 import { access, readdir, readFile } from "node:fs/promises";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
-import { createJiti } from "jiti";
 import type { ZodSchema } from "zod";
 import type {
 	ComputedFieldInput,
@@ -29,6 +29,7 @@ const CLIENT_NOOP_CODE = [
 	"export default vikeContentCollectionPlugin;",
 	"export const getCollection = () => [];",
 	"export const getCollectionEntry = () => undefined;",
+	"export const findCollectionEntries = () => [];",
 	"export const paginate = (_entries, _options) => ({ items: [], currentPage: 1, totalPages: 1, totalItems: 0, hasNextPage: false, hasPreviousPage: false });",
 	"export const sortCollection = (entries) => [...entries];",
 	"export const reference = () => ({});",
@@ -86,6 +87,121 @@ export interface ContentCollectionPluginOptions {
 	lastModified?: boolean;
 }
 
+/** @internal Strips JSONC comments and trailing commas for tsconfig parsing. */
+export function stripJsonc(text: string): string {
+	let result = "";
+	let inString = false;
+	let isEscaped = false;
+	let i = 0;
+
+	while (i < text.length) {
+		const ch = text[i];
+
+		if (isEscaped) {
+			result += ch;
+			isEscaped = false;
+			i++;
+			continue;
+		}
+
+		if (inString) {
+			if (ch === "\\") isEscaped = true;
+			else if (ch === '"') inString = false;
+			result += ch;
+			i++;
+			continue;
+		}
+
+		if (ch === '"') {
+			inString = true;
+			result += ch;
+			i++;
+			continue;
+		}
+
+		if (ch === "/" && text[i + 1] === "/") {
+			const nl = text.indexOf("\n", i);
+			i = nl === -1 ? text.length : nl;
+			continue;
+		}
+
+		if (ch === "/" && text[i + 1] === "*") {
+			const end = text.indexOf("*/", i + 2);
+			i = end === -1 ? text.length : end + 2;
+			continue;
+		}
+
+		result += ch;
+		i++;
+	}
+
+	return result.replace(/,(\s*[}\]])/g, "$1");
+}
+
+/** @internal Reads tsconfig.json paths and converts them to resolve aliases. */
+export function loadTsconfigAliases(
+	projectRoot: string,
+): Record<string, string> {
+	const aliases: Record<string, string> = {};
+
+	function readConfig(
+		filePath: string,
+		depth: number,
+	): { baseUrl?: string; paths?: Record<string, string[]> } {
+		if (depth > 5) return {};
+
+		let raw: string;
+		try {
+			raw = readFileSync(filePath, "utf-8");
+		} catch {
+			return {};
+		}
+
+		let config: Record<string, unknown>;
+		try {
+			config = JSON.parse(stripJsonc(raw));
+		} catch {
+			return {};
+		}
+
+		const compiler = (config.compilerOptions ?? {}) as Record<string, unknown>;
+		let merged = { baseUrl: compiler.baseUrl, paths: compiler.paths } as {
+			baseUrl?: string;
+			paths?: Record<string, string[]>;
+		};
+
+		if (typeof config.extends === "string" && config.extends.startsWith(".")) {
+			const dir = dirname(filePath);
+			let parentPath = resolve(dir, config.extends);
+			if (!parentPath.endsWith(".json")) parentPath += ".json";
+			const parent = readConfig(parentPath, depth + 1);
+			merged = {
+				baseUrl: merged.baseUrl ?? parent.baseUrl,
+				paths:
+					merged.paths && parent.paths
+						? { ...parent.paths, ...merged.paths }
+						: (merged.paths ?? parent.paths),
+			};
+		}
+
+		return merged;
+	}
+
+	const config = readConfig(join(projectRoot, "tsconfig.json"), 0);
+	const baseUrl = resolve(projectRoot, (config.baseUrl as string) ?? ".");
+	const paths = config.paths ?? {};
+
+	for (const [pattern, targets] of Object.entries(paths)) {
+		if (!Array.isArray(targets) || targets.length === 0) continue;
+		const aliasKey = pattern.endsWith("/*") ? pattern.slice(0, -2) : pattern;
+		const target = targets[0];
+		const aliasValue = target.endsWith("/*") ? target.slice(0, -2) : target;
+		aliases[aliasKey] = resolve(baseUrl, aliasValue);
+	}
+
+	return aliases;
+}
+
 const configCache = new Map<string, ResolvedContentConfig>();
 
 export function vikeContentCollectionPlugin(
@@ -93,7 +209,8 @@ export function vikeContentCollectionPlugin(
 ) {
 	let root: string;
 	let devServer: PluginDevServer | null = null;
-	let jitiInstance: ReturnType<typeof createJiti> | null = null;
+	let buildServer: PluginDevServer | null = null;
+	let viteAliases: Record<string, string> = {};
 	const store = getGlobalStore();
 
 	function getConfigRoot(): string {
@@ -181,6 +298,41 @@ export function vikeContentCollectionPlugin(
 		};
 	}
 
+	async function ensureBuildServer(): Promise<PluginDevServer> {
+		if (!buildServer) {
+			const { register } = await import("node:module");
+			register(
+				`data:text/javascript,${encodeURIComponent(
+					"export function load(u,c,n){" +
+						"if(/\\.(webp|png|jpe?g|gif|svg|ico|avif|css|scss|sass|less|styl|woff2?|eot|ttf|otf|mp[34]|webm|ogg|wav|pdf)(\\?|$)/i.test(u))" +
+						'return{shortCircuit:true,format:"module",source:\'export default "";\'};' +
+						"return n(u,c)}",
+				)}`,
+				import.meta.url,
+			);
+
+			const { createServer } = await import("vite");
+			const aliasEntries = Object.entries(viteAliases).map(
+				([find, replacement]) => ({ find, replacement }),
+			);
+			buildServer = (await createServer({
+				root,
+				configFile: false,
+				logLevel: "silent",
+				server: { middlewareMode: true },
+				resolve: aliasEntries.length > 0 ? { alias: aliasEntries } : undefined,
+			})) as unknown as PluginDevServer;
+		}
+		return buildServer;
+	}
+
+	async function closeBuildServer(): Promise<void> {
+		if (buildServer) {
+			await (buildServer as unknown as { close(): Promise<void> }).close();
+			buildServer = null;
+		}
+	}
+
 	async function loadContentConfig(
 		configPath: string,
 	): Promise<ResolvedContentConfig> {
@@ -189,8 +341,8 @@ export function vikeContentCollectionPlugin(
 		if (devServer) {
 			mod = await devServer.ssrLoadModule(configPath);
 		} else {
-			if (!jitiInstance) jitiInstance = createJiti(root);
-			mod = (await jitiInstance.import(configPath)) as Record<string, unknown>;
+			const server = await ensureBuildServer();
+			mod = await server.ssrLoadModule(configPath);
 		}
 
 		const raw =
@@ -344,7 +496,6 @@ export function vikeContentCollectionPlugin(
 			lastModified: lm,
 			_isDraft: isDraft,
 			lineMap,
-			index: {},
 		};
 	}
 
@@ -356,6 +507,7 @@ export function vikeContentCollectionPlugin(
 		const files = await findContentFiles(mdDir, config.type);
 
 		let lastModifiedMap: Map<string, Date | undefined> | undefined;
+
 		if (options.lastModified && files.length > 0) {
 			lastModifiedMap = await getLastModifiedBatch(files, root);
 		}
@@ -365,14 +517,13 @@ export function vikeContentCollectionPlugin(
 		);
 
 		const entries: CollectionEntry[] = [];
-		const index: Record<string, CollectionEntry> = {};
+		const index: Map<string, CollectionEntry> = new Map();
 		const includeDrafts = shouldIncludeDrafts();
 
 		for (const entry of allEntries) {
 			if (!includeDrafts && entry._isDraft) continue;
 			entries.push(entry);
-			index[entry.slug] = entry;
-			entry.index = index;
+			index.set(entry.slug, entry);
 		}
 
 		store.set(configDir, {
@@ -382,6 +533,7 @@ export function vikeContentCollectionPlugin(
 			configPath,
 			markdownDir: mdDir,
 			entries,
+			index,
 		});
 	}
 
@@ -431,13 +583,13 @@ export function vikeContentCollectionPlugin(
 	async function scanAndProcess(): Promise<void> {
 		store.clear();
 		configCache.clear();
-		jitiInstance = null;
 		const configFiles = await findContentConfigs(getConfigRoot());
 
 		for (const configPath of configFiles) {
 			const configDir = dirname(configPath);
 			const name = deriveCollectionName(configPath);
 			const markdownDir = resolveMarkdownDir(name);
+
 			store.set(configDir, {
 				name,
 				type: "content",
@@ -445,6 +597,7 @@ export function vikeContentCollectionPlugin(
 				configPath,
 				markdownDir,
 				entries: [],
+				index: new Map(),
 			});
 		}
 
@@ -463,6 +616,8 @@ export function vikeContentCollectionPlugin(
 				}
 			}),
 		);
+
+		await closeBuildServer();
 
 		const schemaMap = new Map<string, unknown>();
 		for (const [path, config] of configCache.entries()) {
@@ -483,8 +638,28 @@ export function vikeContentCollectionPlugin(
 		name: "vike-content-collection",
 		enforce: "pre" as const,
 
-		configResolved(resolvedConfig: { root: string }) {
+		configResolved(resolvedConfig: {
+			root: string;
+			resolve?: {
+				alias?: Array<{
+					find: string | RegExp;
+					replacement: string;
+				}>;
+			};
+		}) {
 			root = resolvedConfig.root;
+
+			const tsconfigAliases = loadTsconfigAliases(root);
+			const resolvedAliases: Record<string, string> = { ...tsconfigAliases };
+			const aliases = resolvedConfig.resolve?.alias;
+			if (Array.isArray(aliases)) {
+				for (const entry of aliases) {
+					if (typeof entry.find === "string") {
+						resolvedAliases[entry.find] = entry.replacement;
+					}
+				}
+			}
+			viteAliases = resolvedAliases;
 		},
 
 		configureServer(server: PluginDevServer) {
@@ -541,7 +716,33 @@ export function vikeContentCollectionPlugin(
 		load(id: string) {
 			if (id === RESOLVED_VIRTUAL_MODULE_ID) {
 				const data = store.toSerializable();
-				return `export const collections = ${JSON.stringify(data, null, 2)};`;
+				let hasCircular = false;
+				const ancestors: unknown[] = [];
+				const json = JSON.stringify(
+					data,
+					function (_key, value) {
+						if (typeof value === "object" && value !== null) {
+							const thisIdx = ancestors.indexOf(this);
+							if (thisIdx !== -1) {
+								ancestors.length = thisIdx + 1;
+							}
+							if (ancestors.includes(value)) {
+								hasCircular = true;
+								return null;
+							}
+							ancestors.push(value);
+						}
+						return value;
+					},
+					2,
+				);
+				if (hasCircular) {
+					console.warn(
+						"[vike-content-collection] Circular reference detected in collection data. " +
+							"Check computed fields or schema transforms that may embed other entries.",
+					);
+				}
+				return `export const collections = ${json};`;
 			}
 			if (id === NOOP_MODULE_ID) {
 				return CLIENT_NOOP_CODE;
@@ -565,8 +766,10 @@ export function vikeContentCollectionPlugin(
 				if (isContentConfig) {
 					const configDir = dirname(file);
 					const name = deriveCollectionName(file);
+
 					if (!store.has(configDir)) {
 						const markdownDir = resolveMarkdownDir(name);
+
 						store.set(configDir, {
 							name,
 							type: "content",
@@ -574,12 +777,15 @@ export function vikeContentCollectionPlugin(
 							configPath: file,
 							markdownDir,
 							entries: [],
+							index: new Map(),
 						});
 					}
+
 					configCache.delete(file);
 					await processCollection(file);
 				} else if (isMarkdown || isDataFile) {
 					const collection = findCollectionForFile(file);
+
 					if (collection) {
 						await processSingleEntry(file, collection);
 					}

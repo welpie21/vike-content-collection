@@ -49,7 +49,7 @@ for (const post of posts) {
 
 ## Collection references
 
-Use `reference()` to create a Zod schema that validates a slug string and marks it as a reference to another collection. After all collections are loaded, the plugin verifies that the referenced slug exists.
+Use `reference()` to create a Zod schema that validates a slug string and marks it as a reference to another collection. After all collections are loaded, the plugin verifies that the referenced slug exists. The `collectionName` argument is typed as `CollectionName`, which autocompletes to known collection names when the generated declaration file is present.
 
 ### Defining a reference
 
@@ -125,24 +125,26 @@ If the frontmatter says `author: "nonexistent"`, the plugin warns that the slug 
 
 By default, slugs are derived from the filename without extension (e.g. `hello-world.md` becomes `"hello-world"`).
 
-Override slug generation with a `slug` function in the extended config:
+Override slug generation with a `slug` function in the extended config. Use `defineCollection()` to get typed `metadata` based on your schema:
 
 ```ts
-export const Content = {
+import { defineCollection } from 'vike-content-collection'
+
+export const Content = defineCollection({
   schema: z.object({
     title: z.string(),
     permalink: z.string().optional()
   }),
   slug: ({ metadata, filePath, defaultSlug }) =>
-    metadata.permalink ?? defaultSlug,
-}
+    metadata.permalink ?? defaultSlug, // ← metadata.permalink is typed as string | undefined
+})
 ```
 
-The function receives a `SlugInput`:
+The function receives a `SlugInput<TMetadata>`:
 
 | Field         | Type                         | Description                       |
 | ------------- | ---------------------------- | --------------------------------- |
-| `metadata`    | `Record<string, unknown>`    | Validated frontmatter             |
+| `metadata`    | Inferred from schema (via `defineCollection`) | Validated frontmatter |
 | `filePath`    | `string`                     | Absolute path to the file         |
 | `defaultSlug` | `string`                     | Filename-based slug               |
 
@@ -715,12 +717,13 @@ const defaultEntry = getLocalizedEntry('docs', 'getting-started', '')
 
 ## Server-only execution
 
-The plugin's runtime APIs (`getCollection`, `getCollectionEntry`, `renderEntry`, etc.) use Node.js-specific code that should not run in the browser. The plugin handles this automatically: when `vike-content-collection` is imported in a client-side bundle, the plugin intercepts the import and replaces it with a lightweight no-op module that exports safe stubs.
+The plugin's runtime APIs (`getCollection`, `getCollectionEntry`, `findCollectionEntries`, `renderEntry`, etc.) use Node.js-specific code that should not run in the browser. The plugin handles this automatically: when `vike-content-collection` is imported in a client-side bundle, the plugin intercepts the import and replaces it with a lightweight no-op module that exports safe stubs.
 
 This means:
 
 - `getCollection()` returns `[]` on the client
 - `getCollectionEntry()` returns `undefined` on the client
+- `findCollectionEntries()` returns `[]` on the client
 - `renderEntry()` returns `{ html: '', headings: [] }` on the client
 - All other runtime functions return safe empty values
 

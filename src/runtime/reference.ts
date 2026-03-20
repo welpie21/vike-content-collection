@@ -1,14 +1,13 @@
 import { z } from "zod";
-
-const REFERENCE_METADATA = Symbol.for("vike-content-collection:reference");
+import type { CollectionName } from "../types/index.js";
 
 /**
  * Create a Zod schema that validates a slug string and marks it as
  * a reference to another collection. After all collections are loaded,
  * the plugin verifies that the referenced slug actually exists.
  */
-export function reference(collectionName: string) {
-	const schema = z.string().brand(REFERENCE_METADATA);
+export function reference(collectionName: CollectionName) {
+	const schema = z.string();
 	(schema as any)._collectionRef = collectionName;
 	return schema;
 }

@@ -1,4 +1,9 @@
-import type { TypedCollectionEntry } from "../types/index.js";
+import type {
+	CollectionMap,
+	InferComputed,
+	InferMetadata,
+	TypedCollectionEntry,
+} from "../types/index.js";
 import { getCollection } from "./get-collection.js";
 
 export interface PaginationResult<T> {
@@ -115,6 +120,15 @@ export function paginate<T>(
  * Useful for aggregated views like "latest updates" pages.
  * The caller can sort, paginate, or filter the combined result.
  */
+export function mergeCollections<K extends keyof CollectionMap>(
+	names: K[],
+): TypedCollectionEntry<
+	InferMetadata<CollectionMap[K]>,
+	InferComputed<CollectionMap[K]>
+>[];
+export function mergeCollections(
+	names: string[],
+): TypedCollectionEntry<Record<string, unknown>>[];
 export function mergeCollections(
 	names: string[],
 ): TypedCollectionEntry<Record<string, unknown>>[] {

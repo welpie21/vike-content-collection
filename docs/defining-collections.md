@@ -28,8 +28,9 @@ For features like computed fields, custom slugs, or data collections, export an 
 ```ts
 // pages/blog/+Content.ts
 import { z } from 'zod'
+import { defineCollection } from 'vike-content-collection'
 
-export const Content = {
+export const Content = defineCollection({
   schema: z.object({
     title: z.string(),
     date: z.date(),
@@ -44,8 +45,10 @@ export const Content = {
   slug: ({ metadata, defaultSlug }) => metadata.permalink ?? defaultSlug,
 
   contentPath: 'articles', // fetch files from <contentRoot>/articles/ instead of <contentRoot>/blog/
-}
+})
 ```
+
+Wrapping with `defineCollection()` gives you full type inference — `metadata` inside `slug` and `computed` callbacks is typed according to your Zod schema. You can also write the extended config as a plain object without `defineCollection()`, but you won't get typed `metadata` in the callbacks.
 
 The extended config supports these fields:
 
@@ -84,7 +87,7 @@ The collection name is automatically derived from the directory path of `+Conten
 | `pages/docs/guides/+Content.ts` | `"docs/guides"` |
 | `pages/+Content.ts`             | `"."`           |
 
-This name is what you pass to `getCollection()` and `getCollectionEntry()`.
+This name is what you pass to `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()`.
 
 ## Content collections (markdown and MDX)
 

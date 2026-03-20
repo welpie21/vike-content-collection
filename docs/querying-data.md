@@ -1,6 +1,6 @@
 # Querying Data
 
-Once you've [defined collections](./defining-collections.md) and added content, use `getCollection()` and `getCollectionEntry()` to access your data. Both functions are fully typed when the generated declaration file is included in your `tsconfig.json`.
+Once you've [defined collections](./defining-collections.md) and added content, use `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()` to access your data. All functions are fully typed when the generated declaration file is included in your `tsconfig.json`.
 
 ## `getCollection(name)`
 
@@ -29,13 +29,9 @@ export function data() {
 
 The returned data is available in your page component via Vike's `useData()`.
 
-## `getCollectionEntry(name, filter)`
+## `getCollectionEntry(name, slug)`
 
-Retrieves specific entries from a collection. The filter type determines what is returned:
-
-### By slug (string)
-
-Pass a string to look up a single entry. Returns the entry or `undefined`:
+Looks up a single entry by slug. Returns the entry or `undefined`:
 
 ```ts
 import { getCollectionEntry } from 'vike-content-collection'
@@ -47,31 +43,37 @@ if (post) {
 }
 ```
 
+## `findCollectionEntries(name, filter)`
+
+Finds entries matching a filter. Always returns an array:
+
 ### By pattern (RegExp)
 
-Pass a regular expression to match slugs. Returns an array of matching entries:
+Pass a regular expression to match slugs:
 
 ```ts
-const tutorials = getCollectionEntry('blog', /^tutorial-/)
+import { findCollectionEntries } from 'vike-content-collection'
+
+const tutorials = findCollectionEntries('blog', /^tutorial-/)
 ```
 
 ### By predicate (function)
 
-Pass a function to filter entries. Returns an array of matching entries:
+Pass a function to filter entries:
 
 ```ts
-const published = getCollectionEntry('blog', (entry) => !entry._isDraft)
-const recent = getCollectionEntry('blog', (entry) =>
+const published = findCollectionEntries('blog', (entry) => !entry._isDraft)
+const recent = findCollectionEntries('blog', (entry) =>
   entry.metadata.date > new Date('2025-01-01')
 )
 ```
 
 ### By array (combined filters)
 
-Pass an array of filters. Returns entries matching **any** filter (OR semantics):
+Pass an array of filters (string, RegExp, or predicate). Returns entries matching **any** filter (OR semantics):
 
 ```ts
-const selected = getCollectionEntry('blog', [
+const selected = findCollectionEntries('blog', [
   'intro',
   /^tutorial-/,
   (entry) => entry.metadata.featured === true,
@@ -80,16 +82,16 @@ const selected = getCollectionEntry('blog', [
 
 ### Filter summary
 
-| Filter type | Example                     | Returns                       |
-| ----------- | --------------------------- | ----------------------------- |
-| `string`    | `'getting-started'`         | Single entry or `undefined`   |
-| `RegExp`    | `/^tutorial-/`              | Array of matching entries     |
-| Predicate   | `(e) => !e._isDraft`        | Array of matching entries     |
-| Array       | `['intro', /^guide-/]`      | Array matching any filter     |
+| Function                 | Filter type | Example                     | Returns                       |
+| ------------------------ | ----------- | --------------------------- | ----------------------------- |
+| `getCollectionEntry`     | `string`    | `'getting-started'`         | Single entry or `undefined`   |
+| `findCollectionEntries`  | `RegExp`    | `/^tutorial-/`              | Array of matching entries     |
+| `findCollectionEntries`  | Predicate   | `(e) => !e._isDraft`        | Array of matching entries     |
+| `findCollectionEntries`  | Array       | `['intro', /^guide-/]`      | Array matching any filter     |
 
 ## Entry shape
 
-Every entry returned by `getCollection` or `getCollectionEntry` has these fields:
+Every entry returned by `getCollection`, `getCollectionEntry`, or `findCollectionEntries` has these fields:
 
 | Field          | Type                          | Description                                           |
 | -------------- | ----------------------------- | ----------------------------------------------------- |
@@ -183,6 +185,7 @@ The plugin auto-generates `.vike-content-collection/types.d.ts` which augments t
 
 - `getCollection('blog')` returns entries typed with the exact schema from `pages/blog/+Content.ts`
 - `getCollectionEntry('blog', 'slug')` returns a properly typed entry
+- `findCollectionEntries('blog', /pattern/)` returns properly typed entries
 - Autocomplete works for collection names and metadata fields
 
 No manual type annotations are needed. The types update automatically on dev server start, HMR, and builds.

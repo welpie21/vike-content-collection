@@ -2,7 +2,9 @@ export {
 	vikeContentCollectionPlugin as default,
 	vikeContentCollectionPlugin,
 } from "./plugin/vite-plugin.js";
+export { defineCollection } from "./runtime/define-collection.js";
 export {
+	findCollectionEntries,
 	getCollection,
 	getCollectionEntry,
 } from "./runtime/get-collection.js";
@@ -38,12 +40,11 @@ export type {
 	AdjacentEntries,
 	Breadcrumb,
 	BreadcrumbOptions,
-	Collection,
-	CollectionEntry,
 	CollectionEntryFilter,
 	CollectionEntryFilterInput,
 	CollectionEntryPredicate,
 	CollectionMap,
+	CollectionName,
 	CollectionTreeNode,
 	ComputedFieldInput,
 	ContentCollectionConfig,

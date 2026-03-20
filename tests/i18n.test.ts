@@ -11,22 +11,16 @@ function makeI18nCollection(
 	configDir: string,
 	items: { slug: string; locale?: string }[],
 ): Collection {
-	const index: Record<string, Collection["entries"][number]> = {};
-	const entries = items.map((item) => {
-		const entry = {
-			filePath: `${configDir}/${item.slug}.md`,
-			slug: item.slug,
-			metadata: { title: item.slug, locale: item.locale },
-			content: `Body of ${item.slug}`,
-			computed: {},
-			lastModified: undefined,
-			_isDraft: false,
-			lineMap: { title: 2 },
-			index,
-		};
-		index[item.slug] = entry;
-		return entry;
-	});
+	const entries = items.map((item) => ({
+		filePath: `${configDir}/${item.slug}.md`,
+		slug: item.slug,
+		metadata: { title: item.slug, locale: item.locale },
+		content: `Body of ${item.slug}`,
+		computed: {},
+		lastModified: undefined,
+		_isDraft: false,
+		lineMap: { title: 2 },
+	}));
 
 	return {
 		name,
@@ -35,6 +29,7 @@ function makeI18nCollection(
 		configPath: `${configDir}/+Content.ts`,
 		markdownDir: configDir,
 		entries,
+		index: new Map(entries.map((e) => [e.slug, e])),
 	};
 }
 

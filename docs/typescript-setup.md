@@ -6,7 +6,7 @@ This guide explains how to configure TypeScript in your project so that `vike-co
 
 The plugin uses two mechanisms to deliver type safety:
 
-1. **Auto-generated declaration file** -- `.vike-content-collection/types.d.ts` is emitted automatically and augments the `CollectionMap` interface via [declaration merging](https://www.typescriptlang.org/docs/handbook/declaration-merging.html). This powers typed `getCollection()` and `getCollectionEntry()` calls.
+1. **Auto-generated declaration file** -- `.vike-content-collection/types.d.ts` is emitted automatically and augments the `CollectionMap` interface via [declaration merging](https://www.typescriptlang.org/docs/handbook/declaration-merging.html). This powers typed `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()` calls.
 2. **Virtual module declaration** -- The `virtual:content-collection` Vite virtual module needs a manual type declaration if you import it directly.
 
 ## 1. Include the generated types
@@ -78,6 +78,7 @@ This means:
 
 - `getCollection('blog')` returns entries typed with the exact Zod schema from `pages/blog/+Content.ts`
 - `getCollectionEntry('blog', 'my-post')` returns a properly typed entry (or `undefined`)
+- `findCollectionEntries('blog', /pattern/)` returns properly typed entries
 - Collection names autocomplete in your editor
 - Metadata fields are fully typed and autocomplete as well
 - Computed field return types are inferred from the functions in your `+Content.ts`
@@ -107,7 +108,7 @@ declare module 'virtual:content-collection' {
 }
 ```
 
-This declaration is only needed if you actually import from `virtual:content-collection`. Most projects use `getCollection()` and `getCollectionEntry()` instead, which are already fully typed through the auto-generated declaration file.
+This declaration is only needed if you actually import from `virtual:content-collection`. Most projects use `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()` instead, which are already fully typed through the auto-generated declaration file.
 
 ### When to use the virtual module
 
@@ -117,7 +118,7 @@ The virtual module is useful for:
 - Custom build scripts or tooling that operate on the raw collection store
 - Cases where you need the serialized (JSON-compatible) form of all collections at once
 
-For typical page rendering and data loading, use `getCollection()` and `getCollectionEntry()` in `+data.ts` files instead.
+For typical page rendering and data loading, use `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()` in `+data.ts` files instead.
 
 ## Troubleshooting
 

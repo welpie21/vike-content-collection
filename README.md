@@ -10,7 +10,7 @@ Define a [Zod](https://zod.dev/) schema, drop in your markdown files, and get fu
 | ----- | ----------- |
 | [Getting Started](./docs/getting-started.md) | Installation, setup, and your first collection |
 | [Defining Collections](./docs/defining-collections.md) | Schema formats, data collections, content directories |
-| [Querying Data](./docs/querying-data.md) | `getCollection`, `getCollectionEntry`, usage patterns |
+| [Querying Data](./docs/querying-data.md) | `getCollection`, `getCollectionEntry`, `findCollectionEntries`, usage patterns |
 | [Rendering Content](./docs/rendering.md) | Markdown to HTML, headings, custom plugins |
 | [TypeScript Setup](./docs/typescript-setup.md) | Generated types, virtual module declarations, tsconfig |
 | [Advanced Features](./docs/advanced-features.md) | Computed fields, references, drafts, sorting, and more |
@@ -19,7 +19,7 @@ Define a [Zod](https://zod.dev/) schema, drop in your markdown files, and get fu
 ## Features
 
 - **Zod schema validation** -- frontmatter is parsed and validated with precise error reporting (file, line, column)
-- **Full type inference** -- auto-generated declaration file powers typesafe `getCollection()` and `getCollectionEntry()`
+- **Full type inference** -- auto-generated declaration file powers typesafe `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()`
 - **Markdown, MDX & data collections** -- `.md` and `.mdx` files with frontmatter, or `.json` / `.yaml` / `.toml` data files
 - **Built-in rendering** -- markdown and MDX to HTML via unified/remark/rehype, with heading extraction
 - **Pluggable renderers** -- use the built-in markdown or MDX renderer, or implement your own `ContentRenderer`
@@ -226,31 +226,37 @@ import { getCollection } from 'vike-content-collection'
 const posts = getCollection('blog')
 ```
 
-#### `getCollectionEntry(name, filter)`
+#### `getCollectionEntry(name, slug)`
 
-Retrieves specific entries. The filter determines the return type:
+Looks up a single entry by slug. Returns the entry or `undefined`:
+
+```ts
+import { getCollectionEntry } from 'vike-content-collection'
+
+const post = getCollectionEntry('blog', 'getting-started')
+```
+
+#### `findCollectionEntries(name, filter)`
+
+Finds entries matching a filter. Always returns an array:
 
 | Filter type | Example | Returns |
 | ----------- | ------- | ------- |
-| `string` | `'getting-started'` | Single entry or `undefined` |
 | `RegExp` | `/^tutorial-/` | Array of matching entries |
 | Predicate | `(e) => !e._isDraft` | Array of matching entries |
 | Array | `['intro', /^guide-/]` | Array matching any filter (OR) |
 
 ```ts
-import { getCollectionEntry } from 'vike-content-collection'
-
-// Single entry by slug
-const post = getCollectionEntry('blog', 'getting-started')
+import { findCollectionEntries } from 'vike-content-collection'
 
 // Pattern match
-const tutorials = getCollectionEntry('blog', /^tutorial-/)
+const tutorials = findCollectionEntries('blog', /^tutorial-/)
 
 // Predicate
-const published = getCollectionEntry('blog', (e) => !e._isDraft)
+const published = findCollectionEntries('blog', (e) => !e._isDraft)
 
 // Combined filters (OR semantics)
-const selected = getCollectionEntry('blog', [
+const selected = findCollectionEntries('blog', [
   'intro',
   /^tutorial-/,
   (entry) => entry.metadata.featured === true,
@@ -259,7 +265,7 @@ const selected = getCollectionEntry('blog', [
 
 #### Entry shape
 
-Every entry returned by `getCollection` or `getCollectionEntry` has:
+Every entry returned by `getCollection`, `getCollectionEntry`, or `findCollectionEntries` has:
 
 | Field          | Type                    | Description                                            |
 | -------------- | ----------------------- | ------------------------------------------------------ |
@@ -371,7 +377,7 @@ posts[0].computed.excerpt     // string
 
 ### Collection references
 
-Use `reference()` to validate that a metadata field points to an existing slug in another collection:
+Use `reference()` to validate that a metadata field points to an existing slug in another collection. The argument is typed — it autocompletes to known collection names when generated types are present:
 
 ```ts
 import { z } from 'zod'
@@ -389,17 +395,19 @@ After all collections are loaded, the plugin runs a cross-collection validation 
 
 ### Custom slugs
 
-By default, slugs come from the filename (minus extension). Override with a `slug` function:
+By default, slugs come from the filename (minus extension). Override with a `slug` function. Use `defineCollection()` for typed `metadata`:
 
 ```ts
-export const Content = {
+import { defineCollection } from 'vike-content-collection'
+
+export const Content = defineCollection({
   schema: z.object({
     title: z.string(),
     permalink: z.string().optional()
   }),
   slug: ({ metadata, filePath, defaultSlug }) =>
-    metadata.permalink ?? defaultSlug,
-}
+    metadata.permalink ?? defaultSlug, // ← fully typed
+})
 ```
 
 ---
@@ -641,7 +649,7 @@ The plugin generates `.vike-content-collection/types.d.ts` automatically on buil
 }
 ```
 
-This powers full type inference for `getCollection()` and `getCollectionEntry()` -- no manual type annotations needed.
+This powers full type inference for `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()` -- no manual type annotations needed.
 
 ---
 
@@ -712,7 +720,8 @@ Errors include the file path, line number, Zod error path, and validation messag
 import {
   vikeContentCollectionPlugin,  // Vite plugin factory (also the default export)
   getCollection,                // all entries of a collection
-  getCollectionEntry,           // filtered entries
+  getCollectionEntry,           // single entry by slug
+  findCollectionEntries,        // filtered entries (RegExp, predicate, or array)
   renderEntry,                  // content -> HTML (uses default or custom renderer)
   extractHeadings,              // headings from markdown
   buildTocTree,                 // nested TOC tree from flat headings
@@ -732,6 +741,7 @@ import {
   getAvailableLocales,          // available locales for an entry
   getLocalizedEntry,            // localized version of an entry
   reference,                    // cross-collection reference schema
+  defineCollection,             // type-safe collection definition helper
 } from 'vike-content-collection'
 ```
 
@@ -745,9 +755,8 @@ import type {
   ResolvedContentConfig,
   ComputedFieldInput,
   SlugInput,
-  CollectionEntry,
-  Collection,
   CollectionMap,
+  CollectionName,
   TypedCollectionEntry,
   CollectionEntryFilter,
   CollectionEntryFilterInput,
@@ -781,12 +790,11 @@ import type {
 | `ResolvedContentConfig` | Normalized config after resolving schema or definition |
 | `ComputedFieldInput` | Input to computed field functions |
 | `SlugInput` | Input to custom slug functions |
-| `CollectionEntry` | A single validated entry |
-| `Collection` | A full collection with name, type, config path, and entries |
+| `CollectionName` | Union of known collection names (falls back to `string` before type generation) |
 | `CollectionMap` | Augmentable interface mapping collection names to types |
-| `TypedCollectionEntry<T>` | Entry with typed metadata |
+| `TypedCollectionEntry<T, C>` | A single collection entry with typed metadata and computed fields |
 | `CollectionEntryFilter<T>` | Single filter: `string`, `RegExp`, or predicate |
-| `CollectionEntryFilterInput<T>` | One or more filters for `getCollectionEntry()` |
+| `CollectionEntryFilterInput<T>` | One or more filters for `findCollectionEntries()` |
 | `CollectionEntryPredicate<T>` | Predicate function for filtering entries |
 | `ParsedMarkdown` | Result of parsing a markdown file |
 | `MetadataLineMap` | Maps metadata key paths to line numbers |

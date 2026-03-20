@@ -27,31 +27,18 @@ function resolveCollection(name: string) {
 	return collection;
 }
 
-function buildTypedIndex<TM, TC>(
-	index: Record<string, CollectionEntry>,
-): Record<string, TypedCollectionEntry<TM, TC>> {
-	const typedIndex: Record<string, TypedCollectionEntry<TM, TC>> = {};
-	for (const [slug, entry] of Object.entries(index)) {
-		typedIndex[slug] = {
-			filePath: entry.filePath,
-			slug: entry.slug,
-			metadata: entry.metadata as TM,
-			content: entry.content,
-			computed: entry.computed as TC,
-			lastModified: entry.lastModified,
-			_isDraft: entry._isDraft,
-			index: typedIndex,
-		};
-	}
-	return typedIndex;
-}
-
-function toTypedEntries<TM, TC>(
-	entries: CollectionEntry[],
-): TypedCollectionEntry<TM, TC>[] {
-	if (entries.length === 0) return [];
-	const typedIndex = buildTypedIndex<TM, TC>(entries[0].index);
-	return entries.map((e) => typedIndex[e.slug]);
+function toTypedEntry<
+	TM = Record<string, unknown>,
+	TC = Record<string, unknown>,
+>(entry: CollectionEntry): TypedCollectionEntry<TM, TC> {
+	return {
+		filePath: entry.filePath,
+		slug: entry.slug,
+		metadata: entry.metadata as TM,
+		content: entry.content,
+		computed: entry.computed as TC,
+		lastModified: entry.lastModified,
+	};
 }
 
 /**
@@ -75,8 +62,7 @@ export function getCollection(
 export function getCollection(
 	name: string,
 ): TypedCollectionEntry<Record<string, unknown>>[] {
-	const collection = resolveCollection(name);
-	return toTypedEntries(collection.entries);
+	return resolveCollection(name).entries.map((e) => toTypedEntry(e));
 }
 
 function matchesFilter<TM, TC>(
@@ -93,42 +79,49 @@ function matchesFilter<TM, TC>(
 }
 
 /**
- * Retrieve entries from a content collection.
+ * Look up a single entry by slug in a content collection.
  *
  * @param name - The collection name (directory path relative to content root).
- * @param filter - One of:
- *   - A `string` slug to look up a single entry (returns the entry or `undefined`).
- *   - A `RegExp` to match slugs (returns an array of matching entries).
- *   - A predicate function to filter entries (returns an array of matching entries).
- *   - An array of the above (OR semantics, returns an array of matching entries).
+ * @param slug - The exact slug to look up.
+ * @returns The matching entry, or `undefined` if no entry has that slug.
  */
 export function getCollectionEntry<K extends keyof CollectionMap>(
 	name: K,
-	filter: string,
+	slug: string,
 ):
 	| TypedCollectionEntry<
 			InferMetadata<CollectionMap[K]>,
 			InferComputed<CollectionMap[K]>
 	  >
 	| undefined;
-export function getCollectionEntry<K extends keyof CollectionMap>(
-	name: K,
-	filter: RegExp,
-): TypedCollectionEntry<
-	InferMetadata<CollectionMap[K]>,
-	InferComputed<CollectionMap[K]>
->[];
-export function getCollectionEntry<K extends keyof CollectionMap>(
-	name: K,
-	filter: CollectionEntryFilter<
-		InferMetadata<CollectionMap[K]>,
-		InferComputed<CollectionMap[K]>
-	>[],
-): TypedCollectionEntry<
-	InferMetadata<CollectionMap[K]>,
-	InferComputed<CollectionMap[K]>
->[];
-export function getCollectionEntry<K extends keyof CollectionMap>(
+export function getCollectionEntry(
+	name: string,
+	slug: string,
+): TypedCollectionEntry<Record<string, unknown>> | undefined;
+export function getCollectionEntry(
+	name: string,
+	slug: string,
+): TypedCollectionEntry<Record<string, unknown>> | undefined {
+	const entry = resolveCollection(name).index.get(slug);
+
+	if (entry) {
+		return toTypedEntry(entry);
+	}
+
+	return undefined;
+}
+
+/**
+ * Find entries in a content collection that match a filter.
+ *
+ * @param name - The collection name (directory path relative to content root).
+ * @param filter - One of:
+ *   - A `RegExp` to match slugs.
+ *   - A predicate function to filter entries.
+ *   - An array of filters (string, RegExp, or predicate) with OR semantics.
+ * @returns An array of matching entries.
+ */
+export function findCollectionEntries<K extends keyof CollectionMap>(
 	name: K,
 	filter: Exclude<
 		CollectionEntryFilterInput<
@@ -141,47 +134,69 @@ export function getCollectionEntry<K extends keyof CollectionMap>(
 	InferMetadata<CollectionMap[K]>,
 	InferComputed<CollectionMap[K]>
 >[];
-export function getCollectionEntry(
-	name: string,
-	filter: string,
-): TypedCollectionEntry<Record<string, unknown>> | undefined;
-export function getCollectionEntry(
-	name: string,
-	filter: RegExp,
-): TypedCollectionEntry<Record<string, unknown>>[];
-export function getCollectionEntry(
-	name: string,
-	filter: CollectionEntryFilter<Record<string, unknown>>[],
-): TypedCollectionEntry<Record<string, unknown>>[];
-export function getCollectionEntry(
+export function findCollectionEntries(
 	name: string,
 	filter: Exclude<CollectionEntryFilterInput<Record<string, unknown>>, string>,
 ): TypedCollectionEntry<Record<string, unknown>>[];
-export function getCollectionEntry(
+export function findCollectionEntries(
 	name: string,
-	filter: CollectionEntryFilterInput<Record<string, unknown>>,
-):
-	| TypedCollectionEntry<Record<string, unknown>, any>
-	| TypedCollectionEntry<Record<string, unknown>, any>[]
-	| undefined {
+	filter: Exclude<CollectionEntryFilterInput<Record<string, unknown>>, string>,
+): TypedCollectionEntry<Record<string, unknown>>[] {
 	const collection = resolveCollection(name);
-	const entries = toTypedEntries<
-		Record<string, unknown>,
-		Record<string, unknown>
-	>(collection.entries);
-
-	if (typeof filter === "string") {
-		return entries.find((e) => e.slug === filter);
-	}
 
 	if (Array.isArray(filter)) {
-		const filters = filter;
-		return entries.filter((e) => filters.some((f) => matchesFilter(e, f)));
+		const stringFilters: string[] = [];
+		const otherFilters: CollectionEntryFilter<
+			Record<string, unknown>,
+			Record<string, unknown>
+		>[] = [];
+
+		for (const f of filter) {
+			if (typeof f === "string") {
+				stringFilters.push(f);
+			} else {
+				otherFilters.push(f);
+			}
+		}
+
+		const result: TypedCollectionEntry<Record<string, unknown>>[] = [];
+		const seen = new Set<string>();
+
+		for (const slug of stringFilters) {
+			if (seen.has(slug)) continue;
+			const entry = collection.index.get(slug);
+			if (entry) {
+				result.push(toTypedEntry(entry));
+				seen.add(slug);
+			}
+		}
+
+		if (otherFilters.length > 0) {
+			for (const raw of collection.entries) {
+				if (seen.has(raw.slug)) continue;
+				const typed = toTypedEntry(raw);
+				if (otherFilters.some((f) => matchesFilter(typed, f))) {
+					result.push(typed);
+					seen.add(raw.slug);
+				}
+			}
+		}
+
+		return result;
 	}
 
 	if (filter instanceof RegExp) {
-		return entries.filter((e) => filter.test(e.slug));
+		return collection.entries
+			.filter((e) => filter.test(e.slug))
+			.map(toTypedEntry);
 	}
 
-	return entries.filter(filter);
+	const result: TypedCollectionEntry<Record<string, unknown>>[] = [];
+	for (const raw of collection.entries) {
+		const typed = toTypedEntry(raw);
+		if (filter(typed)) {
+			result.push(typed);
+		}
+	}
+	return result;
 }

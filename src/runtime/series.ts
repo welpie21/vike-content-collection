@@ -5,7 +5,7 @@ import type {
 	SeriesOptions,
 	SeriesResult,
 } from "../types/index.js";
-import { getCollection } from "./get-collection.js";
+import { getCollection, getCollectionEntry } from "./get-collection.js";
 import { sortCollection } from "./helpers.js";
 
 /**
@@ -43,6 +43,8 @@ export function getSeries(
 ): SeriesResult<Record<string, unknown>> | undefined {
 	const { seriesField = "series", orderField = "seriesOrder" } = options;
 
+	if (!getCollectionEntry(name, currentSlug)) return undefined;
+
 	const allEntries = getCollection(name);
 	const seriesEntries = allEntries.filter(
 		(e) => (e.metadata as Record<string, unknown>)[seriesField] === seriesName,
@@ -51,9 +53,10 @@ export function getSeries(
 	if (seriesEntries.length === 0) return undefined;
 
 	const sorted = sortCollection(seriesEntries, orderField, "asc");
-	const idx = sorted.findIndex((e) => e.slug === currentSlug);
+	const slugIndex = new Map(sorted.map((e, i) => [e.slug, i]));
+	const idx = slugIndex.get(currentSlug);
 
-	if (idx === -1) return undefined;
+	if (idx === undefined) return undefined;
 
 	return {
 		name: seriesName,

@@ -1,39 +1,24 @@
 import type { MetadataLineMap } from "./markdown.js";
 
 export interface CollectionEntry {
-	/** Absolute path to the source file */
 	filePath: string;
-	/** Unique slug of the entry within the collection */
 	slug: string;
-	/** Validated metadata */
 	metadata: Record<string, unknown>;
-	/** Raw markdown body. Empty string for data entries. */
 	content: string;
-	/** Values produced by computed field functions */
 	computed: Record<string, unknown>;
-	/** Git-based last modification date, if enabled */
 	lastModified: Date | undefined;
-	/** Whether the entry is a draft */
 	_isDraft: boolean;
-	/** Maps metadata key paths to their line numbers for error reporting */
 	lineMap: MetadataLineMap;
-	/** Index of resolved entries by slug */
-	index: Record<string, CollectionEntry>;
 }
 
 export interface Collection {
-	/** Derived collection name (relative path from content root) */
 	name: string;
-	/** Whether this is a 'content' or 'data' collection */
 	type: "content" | "data";
-	/** Directory where the +Content.ts config lives */
 	configDir: string;
-	/** Absolute path to the +Content.ts file */
 	configPath: string;
-	/** Directory where content/data files are searched */
 	markdownDir: string;
-	/** Resolved entries for this collection */
 	entries: CollectionEntry[];
+	index: Map<string, CollectionEntry>;
 }
 
 /**
@@ -42,9 +27,15 @@ export interface Collection {
  */
 export class CollectionStore {
 	private collections = new Map<string, Collection>();
+	private nameIndex = new Map<string, Collection>();
 
 	set(configDir: string, collection: Collection): void {
+		const existing = this.collections.get(configDir);
+		if (existing) {
+			this.nameIndex.delete(existing.name);
+		}
 		this.collections.set(configDir, collection);
+		this.nameIndex.set(collection.name, collection);
 	}
 
 	get(configDir: string): Collection | undefined {
@@ -52,10 +43,7 @@ export class CollectionStore {
 	}
 
 	getByName(name: string): Collection | undefined {
-		for (const collection of this.collections.values()) {
-			if (collection.name === name) return collection;
-		}
-		return undefined;
+		return this.nameIndex.get(name);
 	}
 
 	getAll(): Collection[] {
@@ -67,39 +55,46 @@ export class CollectionStore {
 	}
 
 	delete(configDir: string): boolean {
+		const collection = this.collections.get(configDir);
+		if (collection) {
+			this.nameIndex.delete(collection.name);
+		}
 		return this.collections.delete(configDir);
 	}
 
 	clear(): void {
 		this.collections.clear();
+		this.nameIndex.clear();
 	}
 
 	updateEntry(configDir: string, entry: CollectionEntry): void {
 		const collection = this.collections.get(configDir);
 		if (!collection) return;
-		const idx = collection.entries.findIndex((e) => e.slug === entry.slug);
-		if (idx >= 0) {
-			collection.entries[idx] = entry;
+
+		const oldEntry = collection.index.get(entry.slug);
+		if (oldEntry) {
+			const idx = collection.entries.indexOf(oldEntry);
+			if (idx >= 0) {
+				collection.entries[idx] = entry;
+			}
 		} else {
 			collection.entries.push(entry);
 		}
-		entry.index = Object.fromEntries(
-			collection.entries.map((e) => [e.slug, e]),
-		);
-		for (const e of collection.entries) {
-			e.index = entry.index;
-		}
+
+		collection.index.set(entry.slug, entry);
 	}
 
 	removeEntry(configDir: string, slug: string): void {
 		const collection = this.collections.get(configDir);
 		if (!collection) return;
-		collection.entries = collection.entries.filter((e) => e.slug !== slug);
-		const newIndex = Object.fromEntries(
-			collection.entries.map((e) => [e.slug, e]),
-		);
-		for (const e of collection.entries) {
-			e.index = newIndex;
+
+		const oldEntry = collection.index.get(slug);
+		if (oldEntry) {
+			const idx = collection.entries.indexOf(oldEntry);
+			if (idx >= 0) {
+				collection.entries.splice(idx, 1);
+			}
+			collection.index.delete(slug);
 		}
 	}
 
@@ -134,34 +129,31 @@ export class CollectionStore {
 				}[];
 			}
 		> = {};
-		for (const [dir, collection] of this.collections) {
+		for (const [dir, { entries, type }] of this.collections) {
 			result[dir] = {
-				type: collection.type,
-				entries: collection.entries.map((e) => ({
-					filePath: e.filePath,
-					slug: e.slug,
-					metadata: e.metadata,
-					content: e.content,
-					computed: e.computed,
-					lastModified: e.lastModified?.toISOString(),
-					_isDraft: e._isDraft,
+				entries: entries.map(({ lastModified, ...e }) => ({
+					...e,
+					lastModified: lastModified?.toISOString(),
 				})),
+				type,
 			};
 		}
 		return result;
 	}
 }
 
-let globalStore: CollectionStore | null = null;
+const STORE_KEY = Symbol.for("vike-content-collection:store");
 
 export function getGlobalStore(): CollectionStore {
-	if (!globalStore) {
-		globalStore = new CollectionStore();
+	const g = globalThis as Record<symbol, CollectionStore | undefined>;
+	if (!g[STORE_KEY]) {
+		g[STORE_KEY] = new CollectionStore();
 	}
-	return globalStore;
+	return g[STORE_KEY];
 }
 
 /** Reset the global store (for testing) */
 export function resetGlobalStore(): void {
-	globalStore = null;
+	(globalThis as Record<symbol, CollectionStore | undefined>)[STORE_KEY] =
+		undefined;
 }

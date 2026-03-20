@@ -5,31 +5,42 @@ import type {
 	RelatedEntriesOptions,
 	TypedCollectionEntry,
 } from "../types/index.js";
-import { getCollection } from "./get-collection.js";
+import { getCollection, getCollectionEntry } from "./get-collection.js";
+
+function buildFieldSets(
+	metadata: Record<string, unknown>,
+	fields: string[],
+): Map<string, Set<string>> {
+	const sets = new Map<string, Set<string>>();
+	for (const field of fields) {
+		const val = metadata[field];
+		if (val == null) continue;
+		sets.set(
+			field,
+			new Set(Array.isArray(val) ? val.map(String) : [String(val)]),
+		);
+	}
+	return sets;
+}
 
 function getOverlapScore(
-	current: Record<string, unknown>,
+	currentSets: Map<string, Set<string>>,
 	candidate: Record<string, unknown>,
 	fields: string[],
 ): number {
 	let score = 0;
 
 	for (const field of fields) {
-		const currentVal = current[field];
+		const currentSet = currentSets.get(field);
 		const candidateVal = candidate[field];
-
-		if (currentVal == null || candidateVal == null) continue;
-
-		const currentSet = new Set(
-			Array.isArray(currentVal) ? currentVal.map(String) : [String(currentVal)],
-		);
+		if (!currentSet || candidateVal == null) continue;
 
 		const candidateValues = Array.isArray(candidateVal)
-			? candidateVal.map(String)
-			: [String(candidateVal)];
+			? candidateVal
+			: [candidateVal];
 
 		for (const v of candidateValues) {
-			if (currentSet.has(v)) score++;
+			if (currentSet.has(String(v))) score++;
 		}
 	}
 
@@ -62,17 +73,22 @@ export function getRelatedEntries(
 	options: RelatedEntriesOptions,
 ): TypedCollectionEntry<Record<string, unknown>>[] {
 	const { by, limit = 5 } = options;
-	const entries = getCollection(name);
-	const current = entries.find((e) => e.slug === currentSlug);
+	const current = getCollectionEntry(name, currentSlug);
 
 	if (!current) return [];
+
+	const currentSets = buildFieldSets(
+		current.metadata as Record<string, unknown>,
+		by,
+	);
+	const entries = getCollection(name);
 
 	const scored = entries
 		.filter((e) => e.slug !== currentSlug)
 		.map((entry) => ({
 			entry,
 			score: getOverlapScore(
-				current.metadata as Record<string, unknown>,
+				currentSets,
 				entry.metadata as Record<string, unknown>,
 				by,
 			),

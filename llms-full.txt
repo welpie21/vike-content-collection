@@ -7,7 +7,7 @@ Define a Zod schema, drop in your markdown files, and get fully typed content wi
 ## Features
 
 - Zod schema validation -- frontmatter is parsed and validated with precise error reporting (file, line, column)
-- Full type inference -- auto-generated declaration file powers typesafe getCollection() and getCollectionEntry()
+- Full type inference -- auto-generated declaration file powers typesafe getCollection(), getCollectionEntry(), and findCollectionEntries()
 - Markdown, MDX & data collections -- .md and .mdx files with frontmatter, or .json / .yaml / .toml data files
 - Built-in rendering -- markdown and MDX to HTML via unified/remark/rehype, with heading extraction
 - Pluggable renderers -- use the built-in markdown or MDX renderer, or implement your own ContentRenderer
@@ -264,8 +264,9 @@ For features like computed fields, custom slugs, or data collections, export an 
 ```ts
 // pages/blog/+Content.ts
 import { z } from 'zod'
+import { defineCollection } from 'vike-content-collection'
 
-export const Content = {
+export const Content = defineCollection({
   schema: z.object({
     title: z.string(),
     date: z.date(),
@@ -280,8 +281,10 @@ export const Content = {
   slug: ({ metadata, defaultSlug }) => metadata.permalink ?? defaultSlug,
 
   contentPath: 'articles', // fetch files from <contentRoot>/articles/ instead of <contentRoot>/blog/
-}
+})
 ```
+
+Wrapping with defineCollection() gives full type inference -- metadata inside slug and computed callbacks is typed according to the Zod schema. You can also write the config as a plain object without defineCollection(), but you won't get typed metadata in the callbacks.
 
 The extended config supports these fields:
 
@@ -316,7 +319,7 @@ The collection name is automatically derived from the directory path of +Content
 - pages/docs/guides/+Content.ts → "docs/guides"
 - pages/+Content.ts → "."
 
-This name is what you pass to getCollection() and getCollectionEntry().
+This name is what you pass to getCollection(), getCollectionEntry(), and findCollectionEntries().
 
 ## Content collections (markdown and MDX)
 
@@ -451,7 +454,7 @@ This works in both vite dev (surfaced via HMR) and vite build (stops the build).
 
 # Querying Data
 
-Once you've defined collections and added content, use getCollection() and getCollectionEntry() to access your data. Both functions are fully typed when the generated declaration file is included in your tsconfig.json.
+Once you've defined collections and added content, use getCollection(), getCollectionEntry(), and findCollectionEntries() to access your data. All functions are fully typed when the generated declaration file is included in your tsconfig.json.
 
 ## getCollection(name)
 
@@ -480,13 +483,9 @@ export function data() {
 
 The returned data is available in your page component via Vike's useData().
 
-## getCollectionEntry(name, filter)
+## getCollectionEntry(name, slug)
 
-Retrieves specific entries from a collection. The filter type determines what is returned:
-
-### By slug (string)
-
-Pass a string to look up a single entry. Returns the entry or undefined:
+Looks up a single entry by slug. Returns the entry or undefined:
 
 ```ts
 import { getCollectionEntry } from 'vike-content-collection'
@@ -498,31 +497,37 @@ if (post) {
 }
 ```
 
+## findCollectionEntries(name, filter)
+
+Finds entries matching a filter. Always returns an array:
+
 ### By pattern (RegExp)
 
-Pass a regular expression to match slugs. Returns an array of matching entries:
+Pass a regular expression to match slugs:
 
 ```ts
-const tutorials = getCollectionEntry('blog', /^tutorial-/)
+import { findCollectionEntries } from 'vike-content-collection'
+
+const tutorials = findCollectionEntries('blog', /^tutorial-/)
 ```
 
 ### By predicate (function)
 
-Pass a function to filter entries. Returns an array of matching entries:
+Pass a function to filter entries:
 
 ```ts
-const published = getCollectionEntry('blog', (entry) => !entry._isDraft)
-const recent = getCollectionEntry('blog', (entry) =>
+const published = findCollectionEntries('blog', (entry) => !entry._isDraft)
+const recent = findCollectionEntries('blog', (entry) =>
   entry.metadata.date > new Date('2025-01-01')
 )
 ```
 
 ### By array (combined filters)
 
-Pass an array of filters. Returns entries matching any filter (OR semantics):
+Pass an array of filters (string, RegExp, or predicate). Returns entries matching any filter (OR semantics):
 
 ```ts
-const selected = getCollectionEntry('blog', [
+const selected = findCollectionEntries('blog', [
   'intro',
   /^tutorial-/,
   (entry) => entry.metadata.featured === true,
@@ -531,14 +536,14 @@ const selected = getCollectionEntry('blog', [
 
 ### Filter summary
 
-- string (e.g. 'getting-started') → Single entry or undefined
-- RegExp (e.g. /^tutorial-/) → Array of matching entries
-- Predicate (e.g. (e) => !e._isDraft) → Array of matching entries
-- Array (e.g. ['intro', /^guide-/]) → Array matching any filter (OR)
+- getCollectionEntry: string (e.g. 'getting-started') → Single entry or undefined
+- findCollectionEntries: RegExp (e.g. /^tutorial-/) → Array of matching entries
+- findCollectionEntries: Predicate (e.g. (e) => !e._isDraft) → Array of matching entries
+- findCollectionEntries: Array (e.g. ['intro', /^guide-/]) → Array matching any filter (OR)
 
 ## Entry shape
 
-Every entry returned by getCollection or getCollectionEntry has these fields:
+Every entry returned by getCollection, getCollectionEntry, or findCollectionEntries has these fields:
 
 - filePath (string) -- Absolute path to the source file
 - slug (string) -- Identifier derived from filename (or custom function)
@@ -630,6 +635,7 @@ The plugin auto-generates .vike-content-collection/types.d.ts which augments the
 
 - getCollection('blog') returns entries typed with the exact schema from pages/blog/+Content.ts
 - getCollectionEntry('blog', 'slug') returns a properly typed entry
+- findCollectionEntries('blog', /pattern/) returns properly typed entries
 - Autocomplete works for collection names and metadata fields
 
 No manual type annotations are needed. The types update automatically on dev server start, HMR, and builds.
@@ -840,7 +846,7 @@ This guide explains how to configure TypeScript in your project so that vike-con
 
 The plugin uses two mechanisms to deliver type safety:
 
-1. Auto-generated declaration file -- .vike-content-collection/types.d.ts is emitted automatically and augments the CollectionMap interface via declaration merging. This powers typed getCollection() and getCollectionEntry() calls.
+1. Auto-generated declaration file -- .vike-content-collection/types.d.ts is emitted automatically and augments the CollectionMap interface via declaration merging. This powers typed getCollection(), getCollectionEntry(), and findCollectionEntries() calls.
 2. Virtual module declaration -- The virtual:content-collection Vite virtual module needs a manual type declaration if you import it directly.
 
 ## 1. Include the generated types
@@ -912,6 +918,7 @@ This means:
 
 - getCollection('blog') returns entries typed with the exact Zod schema from pages/blog/+Content.ts
 - getCollectionEntry('blog', 'my-post') returns a properly typed entry (or undefined)
+- findCollectionEntries('blog', /pattern/) returns properly typed entries
 - Collection names autocomplete in your editor
 - Metadata fields are fully typed and autocomplete as well
 - Computed field return types are inferred from the functions in your +Content.ts
@@ -941,7 +948,7 @@ declare module 'virtual:content-collection' {
 }
 ```
 
-This declaration is only needed if you actually import from virtual:content-collection. Most projects use getCollection() and getCollectionEntry() instead, which are already fully typed through the auto-generated declaration file.
+This declaration is only needed if you actually import from virtual:content-collection. Most projects use getCollection(), getCollectionEntry(), and findCollectionEntries() instead, which are already fully typed through the auto-generated declaration file.
 
 ### When to use the virtual module
 
@@ -951,7 +958,7 @@ The virtual module is useful for:
 - Custom build scripts or tooling that operate on the raw collection store
 - Cases where you need the serialized (JSON-compatible) form of all collections at once
 
-For typical page rendering and data loading, use getCollection() and getCollectionEntry() in +data.ts files instead.
+For typical page rendering and data loading, use getCollection(), getCollectionEntry(), and findCollectionEntries() in +data.ts files instead.
 
 ## Troubleshooting
 
@@ -1109,22 +1116,24 @@ If the frontmatter says author: "nonexistent", the plugin warns that the slug do
 
 By default, slugs are derived from the filename without extension (e.g. hello-world.md becomes "hello-world").
 
-Override slug generation with a slug function in the extended config:
+Override slug generation with a slug function. Use defineCollection() for typed metadata:
 
 ```ts
-export const Content = {
+import { defineCollection } from 'vike-content-collection'
+
+export const Content = defineCollection({
   schema: z.object({
     title: z.string(),
     permalink: z.string().optional()
   }),
   slug: ({ metadata, filePath, defaultSlug }) =>
-    metadata.permalink ?? defaultSlug,
-}
+    metadata.permalink ?? defaultSlug, // metadata is fully typed
+})
 ```
 
-The function receives a SlugInput:
+The function receives a SlugInput<TMetadata>:
 
-- metadata (Record<string, unknown>) -- Validated frontmatter
+- metadata (inferred from schema via defineCollection) -- Validated frontmatter
 - filePath (string) -- Absolute path to the file
 - defaultSlug (string) -- Filename-based slug
 
@@ -1625,12 +1634,13 @@ declare module 'virtual:content-collection' {
 
 ## Server-only execution
 
-The plugin's runtime APIs (getCollection, getCollectionEntry, renderEntry, etc.) use Node.js-specific code that should not run in the browser. The plugin handles this automatically: when vike-content-collection is imported in a client-side bundle, the plugin intercepts the import and replaces it with a lightweight no-op module that exports safe stubs.
+The plugin's runtime APIs (getCollection, getCollectionEntry, findCollectionEntries, renderEntry, etc.) use Node.js-specific code that should not run in the browser. The plugin handles this automatically: when vike-content-collection is imported in a client-side bundle, the plugin intercepts the import and replaces it with a lightweight no-op module that exports safe stubs.
 
 On the client side:
 
 - getCollection() returns []
 - getCollectionEntry() returns undefined
+- findCollectionEntries() returns []
 - renderEntry() returns { html: '', headings: [] }
 - All other runtime functions return safe empty values
 
@@ -1668,14 +1678,16 @@ Exported from 'vike-content-collection':
 
 - vikeContentCollectionPlugin(options?) -- Vite plugin factory (also the default export)
 - getCollection(name) -- retrieve all entries of a collection, fully typed
-- getCollectionEntry(name, filter) -- retrieve entries by slug, regex, predicate, or array of filters
+- getCollectionEntry(name, slug) -- look up a single entry by slug, returns entry or undefined
+- findCollectionEntries(name, filter) -- find entries by regex, predicate, or array of filters
 - renderEntry(entry, options?) -- render content to HTML using default or custom renderer, returns { html, headings }
 - extractHeadings(content) -- extract headings from markdown without full render
 - createMarkdownRenderer(defaults?) -- create a markdown renderer (default, used when no renderer specified)
 - createMdxRenderer(defaults?) -- create an MDX renderer for .mdx files with JSX syntax support
 - sortCollection(entries, key, order?) -- sort entries by a metadata key
 - paginate(entries, { pageSize, currentPage }) -- paginate an array of entries
-- reference(collectionName) -- create a cross-collection reference Zod schema
+- reference(collectionName: CollectionName) -- create a cross-collection reference Zod schema (typed argument autocompletes to known collection names)
+- defineCollection(config) -- type-safe collection definition helper; infers metadata type for slug and computed callbacks
 
 ## Types
 
@@ -1683,16 +1695,15 @@ Exported from 'vike-content-collection':
 
 - ContentCollectionPluginOptions -- Options for vikeContentCollection()
 - ContentCollectionConfig -- Shape of the +Content.ts export
-- ContentCollectionDefinition -- Extended config with schema, computed, slug, type, contentPath
+- ContentCollectionDefinition<S> -- Extended config with schema, computed, slug, type, contentPath (generic over schema type)
 - ResolvedContentConfig -- Normalized config after resolving schema or definition
-- ComputedFieldInput -- Input to computed field functions
-- SlugInput -- Input to custom slug functions
-- CollectionEntry -- A single validated entry
-- Collection -- A full collection with name, type, config path, and entries
+- ComputedFieldInput<TMetadata> -- Input to computed field functions (generic metadata type)
+- SlugInput<TMetadata> -- Input to custom slug functions (generic metadata type)
 - CollectionMap -- Augmentable interface mapping collection names to types
-- TypedCollectionEntry<T> -- Entry with typed metadata
+- CollectionName -- Union of known collection names (falls back to string before type generation)
+- TypedCollectionEntry<T, C> -- A single collection entry with typed metadata and computed fields
 - CollectionEntryFilter<T> -- Single filter: string, RegExp, or predicate
-- CollectionEntryFilterInput<T> -- One or more filters for getCollectionEntry()
+- CollectionEntryFilterInput<T> -- One or more filters for findCollectionEntries()
 - CollectionEntryPredicate<T> -- Predicate function for filtering entries
 - ParsedMarkdown -- Result of parsing a markdown file
 - MetadataLineMap -- Maps metadata key paths to line numbers
