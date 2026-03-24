@@ -737,6 +737,8 @@ All options at a glance:
 vikeContentCollection({
   contentDir: 'pages',
   contentRoot: 'content',
+  declarationOutDir: '.vike-content-collection',
+  declarationFileName: 'types.d.ts',
   drafts: {
     field: 'draft',
     includeDrafts: true,
@@ -749,6 +751,8 @@ vikeContentCollection({
 | ---------------------- | --------- | -------------------------------- | ----------------------------------------------- |
 | `contentDir`           | `string`  | `"pages"`                        | Directory to scan for `+Content.ts` files        |
 | `contentRoot`          | `string`  | same as `contentDir`             | Directory where content/data files live          |
+| `declarationOutDir`    | `string`  | `".vike-content-collection"`     | Output directory for the generated declaration file |
+| `declarationFileName`  | `string`  | `"types.d.ts"`                   | Filename for the generated declaration file         |
 | `drafts.field`         | `string`  | `"draft"`                        | Metadata field name for draft status             |
 | `drafts.includeDrafts` | `boolean` | `true` in dev, `false` in prod   | Force include or exclude draft entries           |
 | `lastModified`         | `boolean` | `false`                          | Populate `lastModified` from git history         |

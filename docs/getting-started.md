@@ -49,7 +49,7 @@ The `ssr.external` entry is required -- it tells Vite not to bundle the package 
 
 The plugin automatically provides no-op stubs for client-side bundles, so Node.js-specific code is never shipped to the browser. No extra configuration is needed for this.
 
-The plugin accepts [options](./advanced-features.md#plugin-options) but none are required to get started.
+The plugin accepts [options](./advanced-features.md#plugin-options) but none are required to get started. For example, you can customize where generated types are written with `declarationOutDir`.
 
 ### 2. Extend the Vike config
 
@@ -78,6 +78,8 @@ The plugin generates a declaration file that powers type inference. Add the gene
 ```
 
 The file `.vike-content-collection/types.d.ts` is regenerated automatically when the dev server starts, on HMR updates, and during builds. You should add `.vike-content-collection/` to your `.gitignore`.
+
+If you've configured a custom `declarationOutDir` in the plugin options (e.g. `declarationOutDir: "types/generated"`), update the `include` path and `.gitignore` entry to match.
 
 ## Your first collection
 
