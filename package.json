@@ -1,6 +1,6 @@
 {
 	"name": "vike-content-collection",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"description": "Content collection plugin for Vike + Vite with zod schema validation",
 	"type": "module",
 	"main": "./dist/index.js",

@@ -52,13 +52,15 @@ Config export from `vike-content-collection/config`:
 - Content collections (default): `.md` and `.mdx` files with YAML frontmatter validated against the schema
 - Data collections (`type: 'data'`): `.json`, `.yaml`/`.yml`, `.toml` files validated against the schema
 - Rendering is pluggable via the `ContentRenderer` interface; built-in renderers for markdown and MDX
-- Type declarations are auto-generated at `.vike-content-collection/types.d.ts`
+- Type declarations are auto-generated at `.vike-content-collection/types.d.ts` (configurable via `declarationOutDir` plugin option)
 - Virtual module `virtual:content-collection` exposes serialized collection data to other plugins
 
 ## Plugin Options
 
 - `contentDir` (string, default `"pages"`) -- directory to scan for `+Content.ts` files
 - `contentRoot` (string, default same as contentDir) -- directory where content/data files live
+- `declarationOutDir` (string, default `".vike-content-collection"`) -- output directory for the generated TypeScript declaration file
+- `declarationFileName` (string, default `"types.d.ts"`) -- filename for the generated TypeScript declaration file
 - Per-collection `contentPath` (string, in +Content.ts) -- override the folder inside the content root for a specific collection
 - `drafts.field` (string, default `"draft"`) -- metadata field for draft status
 - `drafts.includeDrafts` (boolean, default true in dev / false in prod) -- force include/exclude drafts

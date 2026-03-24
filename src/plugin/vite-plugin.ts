@@ -76,6 +76,11 @@ export interface ContentCollectionPluginOptions {
 	 *  When set, the plugin looks for files in contentRoot/<collectionName>/
 	 *  instead of alongside the +Content.ts file. Defaults to the same as contentDir. */
 	contentRoot?: string;
+	/** Output directory for the generated TypeScript declaration file, relative to project root.
+	 *  Defaults to ".vike-content-collection". */
+	declarationOutDir?: string;
+	/** Filename for the generated TypeScript declaration file. Defaults to "types.d.ts". */
+	declarationFileName?: string;
 	/** Draft filtering options. */
 	drafts?: {
 		/** Metadata field name to check for draft status. Defaults to "draft". */
@@ -601,7 +606,12 @@ export function vikeContentCollectionPlugin(
 			});
 		}
 
-		await generateDeclarationFile(store, root);
+		await generateDeclarationFile(
+			store,
+			root,
+			options.declarationOutDir,
+			options.declarationFileName,
+		);
 
 		await Promise.allSettled(
 			configFiles.map(async (configPath) => {
@@ -687,7 +697,12 @@ export function vikeContentCollectionPlugin(
 							error instanceof Error ? error.message : error,
 						);
 					}
-					await generateDeclarationFile(store, root);
+					await generateDeclarationFile(
+						store,
+						root,
+						options.declarationOutDir,
+						options.declarationFileName,
+					);
 					invalidateVirtualModule(server);
 				})();
 			}
@@ -802,7 +817,12 @@ export function vikeContentCollectionPlugin(
 				schemaMap.set(path, config.schema);
 			}
 			validateReferenceFields(store, schemaMap);
-			await generateDeclarationFile(store, root);
+			await generateDeclarationFile(
+				store,
+				root,
+				options.declarationOutDir,
+				options.declarationFileName,
+			);
 
 			invalidateVirtualModule(server);
 			return [];

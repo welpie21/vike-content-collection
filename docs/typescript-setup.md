@@ -6,7 +6,7 @@ This guide explains how to configure TypeScript in your project so that `vike-co
 
 The plugin uses two mechanisms to deliver type safety:
 
-1. **Auto-generated declaration file** -- `.vike-content-collection/types.d.ts` is emitted automatically and augments the `CollectionMap` interface via [declaration merging](https://www.typescriptlang.org/docs/handbook/declaration-merging.html). This powers typed `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()` calls.
+1. **Auto-generated declaration file** -- `.vike-content-collection/types.d.ts` (or a custom directory via the `declarationOutDir` plugin option) is emitted automatically and augments the `CollectionMap` interface via [declaration merging](https://www.typescriptlang.org/docs/handbook/declaration-merging.html). This powers typed `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()` calls.
 2. **Virtual module declaration** -- The `virtual:content-collection` Vite virtual module needs a manual type declaration if you import it directly.
 
 ## 1. Include the generated types
@@ -23,6 +23,19 @@ The plugin generates a `.vike-content-collection/` directory at your project roo
 ```
 
 If your `tsconfig.json` already has an `include` array, just append `".vike-content-collection/**/*"` to it. Make sure your existing entries (like `"src"`) remain.
+
+If you've configured a custom output directory via the `declarationOutDir` plugin option, update the include path accordingly:
+
+```ts
+// vite.config.ts
+vikeContentCollection({ declarationOutDir: 'types/generated' })
+```
+
+```json
+{
+  "include": ["src", "types/generated/**/*"]
+}
+```
 
 ### When is it generated?
 
@@ -128,7 +141,7 @@ If types appear stale, try these steps:
 
 1. **Restart the dev server** -- the declaration file is regenerated on startup
 2. **Restart the TypeScript language server** in your editor (in VS Code: `Ctrl+Shift+P` / `Cmd+Shift+P` → "TypeScript: Restart TS Server")
-3. **Check your `tsconfig.json`** -- make sure `.vike-content-collection/**/*` is in the `include` array
+3. **Check your `tsconfig.json`** -- make sure `.vike-content-collection/**/*` (or your custom `declarationOutDir`) is in the `include` array
 
 ### Collection name not autocompleting
 
