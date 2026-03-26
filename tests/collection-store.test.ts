@@ -3,6 +3,7 @@ import {
 	type Collection,
 	CollectionStore,
 	getGlobalStore,
+	hydrateGlobalStore,
 	resetGlobalStore,
 } from "../src/plugin/collection-store";
 
@@ -143,6 +144,14 @@ describe("CollectionStore", () => {
 			expect(entry).toHaveProperty("metadata");
 			expect(entry).toHaveProperty("content");
 			expect(entry).not.toHaveProperty("lineMap");
+		});
+
+		it("includes collection name in serialized output", () => {
+			store.set("/pages/blog", makeCollection("blog", "/pages/blog", 1));
+
+			const serialized = store.toSerializable();
+
+			expect(serialized["/pages/blog"].name).toBe("blog");
 		});
 
 		it("preserves frontmatter data in serialized output", () => {
@@ -308,5 +317,193 @@ describe("Global store", () => {
 
 		expect(second).not.toBe(first);
 		expect(second.getAll()).toEqual([]);
+	});
+});
+
+describe("hydrateGlobalStore", () => {
+	beforeEach(() => {
+		resetGlobalStore();
+	});
+
+	it("populates an empty store from serialized data", () => {
+		hydrateGlobalStore({
+			"/content/blog": {
+				name: "blog",
+				type: "content",
+				entries: [
+					{
+						filePath: "/content/blog/hello.md",
+						slug: "hello",
+						metadata: { title: "Hello" },
+						content: "# Hello",
+						computed: {},
+						lastModified: "2024-01-01T00:00:00.000Z",
+						_isDraft: false,
+					},
+				],
+			},
+		});
+
+		const store = getGlobalStore();
+		const collection = store.getByName("blog");
+
+		expect(collection).toBeDefined();
+		expect(collection?.entries).toHaveLength(1);
+		expect(collection?.entries[0].slug).toBe("hello");
+		expect(collection?.entries[0].lastModified).toEqual(
+			new Date("2024-01-01T00:00:00.000Z"),
+		);
+	});
+
+	it("makes collections accessible by name", () => {
+		hydrateGlobalStore({
+			"/content/docs": {
+				name: "docs",
+				type: "content",
+				entries: [
+					{
+						filePath: "/content/docs/intro.md",
+						slug: "intro",
+						metadata: { title: "Intro" },
+						content: "",
+						computed: {},
+						lastModified: undefined,
+						_isDraft: false,
+					},
+				],
+			},
+		});
+
+		const store = getGlobalStore();
+		expect(store.getByName("docs")).toBeDefined();
+		expect(store.getByName("docs")?.name).toBe("docs");
+	});
+
+	it("builds slug index for entry lookup", () => {
+		hydrateGlobalStore({
+			"/content/blog": {
+				name: "blog",
+				type: "content",
+				entries: [
+					{
+						filePath: "/content/blog/a.md",
+						slug: "a",
+						metadata: {},
+						content: "",
+						computed: {},
+						lastModified: undefined,
+						_isDraft: false,
+					},
+					{
+						filePath: "/content/blog/b.md",
+						slug: "b",
+						metadata: {},
+						content: "",
+						computed: {},
+						lastModified: undefined,
+						_isDraft: false,
+					},
+				],
+			},
+		});
+
+		const store = getGlobalStore();
+		const collection = store.getByName("blog");
+
+		expect(collection?.index.get("a")).toBeDefined();
+		expect(collection?.index.get("b")).toBeDefined();
+		expect(collection?.index.get("c")).toBeUndefined();
+	});
+
+	it("skips collections that already have entries", () => {
+		const store = getGlobalStore();
+		store.set("/content/blog", makeCollection("blog", "/content/blog", 3));
+
+		hydrateGlobalStore({
+			"/content/blog": {
+				name: "blog",
+				type: "content",
+				entries: [
+					{
+						filePath: "/content/blog/x.md",
+						slug: "x",
+						metadata: {},
+						content: "",
+						computed: {},
+						lastModified: undefined,
+						_isDraft: false,
+					},
+				],
+			},
+		});
+
+		expect(store.getByName("blog")?.entries).toHaveLength(3);
+	});
+
+	it("hydrates multiple collections at once", () => {
+		hydrateGlobalStore({
+			"/content/blog": {
+				name: "blog",
+				type: "content",
+				entries: [
+					{
+						filePath: "/content/blog/a.md",
+						slug: "a",
+						metadata: {},
+						content: "",
+						computed: {},
+						lastModified: undefined,
+						_isDraft: false,
+					},
+				],
+			},
+			"/content/docs": {
+				name: "docs",
+				type: "data",
+				entries: [
+					{
+						filePath: "/content/docs/x.json",
+						slug: "x",
+						metadata: {},
+						content: "",
+						computed: {},
+						lastModified: undefined,
+						_isDraft: false,
+					},
+					{
+						filePath: "/content/docs/y.json",
+						slug: "y",
+						metadata: {},
+						content: "",
+						computed: {},
+						lastModified: undefined,
+						_isDraft: false,
+					},
+				],
+			},
+		});
+
+		const store = getGlobalStore();
+		expect(store.getByName("blog")?.entries).toHaveLength(1);
+		expect(store.getByName("docs")?.entries).toHaveLength(2);
+		expect(store.getByName("docs")?.type).toBe("data");
+	});
+
+	it("round-trips through toSerializable", () => {
+		const store = getGlobalStore();
+		store.set("/content/blog", makeCollection("blog", "/content/blog", 2));
+
+		const serialized = store.toSerializable();
+		resetGlobalStore();
+
+		hydrateGlobalStore(serialized);
+
+		const hydrated = getGlobalStore();
+		const collection = hydrated.getByName("blog");
+
+		expect(collection).toBeDefined();
+		expect(collection?.entries).toHaveLength(2);
+		expect(collection?.entries[0].slug).toBe("post-0");
+		expect(collection?.entries[1].slug).toBe("post-1");
 	});
 });

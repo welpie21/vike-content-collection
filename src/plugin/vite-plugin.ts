@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { access, readdir, readFile } from "node:fs/promises";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ZodSchema } from "zod";
 import type {
 	ComputedFieldInput,
@@ -763,7 +764,13 @@ export function vikeContentCollectionPlugin(
 					return `export const collections = ${json};`;
 				}
 
-				const imports: string[] = [];
+				const collectionStorePath = fileURLToPath(
+					new URL("./collection-store.js", import.meta.url),
+				);
+
+				const imports: string[] = [
+					`import { hydrateGlobalStore as _hydrate } from ${JSON.stringify(collectionStorePath)};`,
+				];
 				const configEntries: string[] = [];
 				let idx = 0;
 				for (const collection of store.getAll()) {
@@ -778,6 +785,8 @@ export function vikeContentCollectionPlugin(
 
 				const recomputeCode = [
 					...imports,
+					"",
+					`_hydrate(${json});`,
 					"",
 					'const _STORE_KEY = Symbol.for("vike-content-collection:store");',
 					`const _configs = {\n${configEntries.join("\n")}\n};`,
