@@ -99,48 +99,40 @@ export class CollectionStore {
 	}
 
 	/** Serializable snapshot of all collections for virtual module output */
-	toSerializable(): Record<
-		string,
-		{
-			type: "content" | "data";
-			entries: {
-				filePath: string;
-				slug: string;
-				metadata: Record<string, unknown>;
-				content: string;
-				computed: Record<string, unknown>;
-				lastModified: string | undefined;
-				_isDraft: boolean;
-			}[];
-		}
-	> {
-		const result: Record<
-			string,
-			{
-				type: "content" | "data";
-				entries: {
-					filePath: string;
-					slug: string;
-					metadata: Record<string, unknown>;
-					content: string;
-					computed: Record<string, unknown>;
-					lastModified: string | undefined;
-					_isDraft: boolean;
-				}[];
-			}
-		> = {};
-		for (const [dir, { entries, type }] of this.collections) {
+	toSerializable(): SerializableCollections {
+		const result: SerializableCollections = {};
+		for (const [dir, { name, entries, type }] of this.collections) {
 			result[dir] = {
-				entries: entries.map(({ lastModified, ...e }) => ({
+				name,
+				type,
+				entries: entries.map(({ lastModified, lineMap: _lineMap, ...e }) => ({
 					...e,
 					lastModified: lastModified?.toISOString(),
 				})),
-				type,
 			};
 		}
 		return result;
 	}
 }
+
+export interface SerializableEntry {
+	filePath: string;
+	slug: string;
+	metadata: Record<string, unknown>;
+	content: string;
+	computed: Record<string, unknown>;
+	lastModified: string | undefined;
+	_isDraft: boolean;
+}
+
+export type SerializableCollections = Record<
+	string,
+	{
+		name: string;
+		type: "content" | "data";
+		entries: SerializableEntry[];
+	}
+>;
 
 const STORE_KEY = Symbol.for("vike-content-collection:store");
 
@@ -150,6 +142,44 @@ export function getGlobalStore(): CollectionStore {
 		g[STORE_KEY] = new CollectionStore();
 	}
 	return g[STORE_KEY];
+}
+
+/**
+ * Populate the global store from serialized collection data.
+ * Used by the production virtual module to hydrate the store
+ * in SSR environments where `buildStart` doesn't run.
+ *
+ * Skips collections that already have entries (e.g. during prerendering
+ * where the build process has already populated the store).
+ */
+export function hydrateGlobalStore(data: SerializableCollections): void {
+	const store = getGlobalStore();
+
+	for (const [configDir, collectionData] of Object.entries(data)) {
+		const existing = store.get(configDir);
+		if (existing && existing.entries.length > 0) continue;
+
+		const entries: CollectionEntry[] = collectionData.entries.map((e) => ({
+			...e,
+			lastModified: e.lastModified ? new Date(e.lastModified) : undefined,
+			lineMap: {},
+		}));
+
+		const index = new Map<string, CollectionEntry>();
+		for (const entry of entries) {
+			index.set(entry.slug, entry);
+		}
+
+		store.set(configDir, {
+			name: collectionData.name,
+			type: collectionData.type,
+			configDir,
+			configPath: "",
+			markdownDir: "",
+			entries,
+			index,
+		});
+	}
 }
 
 /** Reset the global store (for testing) */
