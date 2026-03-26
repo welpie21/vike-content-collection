@@ -650,6 +650,7 @@ export function vikeContentCollectionPlugin(
 
 		configResolved(resolvedConfig: {
 			root: string;
+			command: string;
 			resolve?: {
 				alias?: Array<{
 					find: string | RegExp;
@@ -757,10 +758,79 @@ export function vikeContentCollectionPlugin(
 							"Check computed fields or schema transforms that may embed other entries.",
 					);
 				}
-				return `export const collections = ${json};`;
+
+				if (!isProduction()) {
+					return `export const collections = ${json};`;
+				}
+
+				const imports: string[] = [];
+				const configEntries: string[] = [];
+				let idx = 0;
+				for (const collection of store.getAll()) {
+					const varName = `_c${idx++}`;
+					imports.push(
+						`import { Content as ${varName} } from ${JSON.stringify(collection.configPath)};`,
+					);
+					configEntries.push(
+						`  ${JSON.stringify(collection.configDir)}: ${varName},`,
+					);
+				}
+
+				const recomputeCode = [
+					...imports,
+					"",
+					'const _STORE_KEY = Symbol.for("vike-content-collection:store");',
+					`const _configs = {\n${configEntries.join("\n")}\n};`,
+					"",
+					"function _extractComputed(raw) {",
+					"  if (!raw) return {};",
+					"  if (typeof raw.safeParse === 'function') return {};",
+					"  return raw.computed || {};",
+					"}",
+					"",
+					"const _store = globalThis[_STORE_KEY];",
+					"if (_store) {",
+					"  for (const [configDir, raw] of Object.entries(_configs)) {",
+					"    const col = _store.get(configDir);",
+					"    if (!col) continue;",
+					"    const fns = _extractComputed(raw);",
+					"    if (Object.keys(fns).length === 0) continue;",
+					"    const entries = col.entries.map(entry => {",
+					"      const computed = {};",
+					"      for (const [key, fn] of Object.entries(fns)) {",
+					"        try { computed[key] = fn({ metadata: entry.metadata, content: entry.content, filePath: entry.filePath, slug: entry.slug }); }",
+					"        catch { computed[key] = undefined; }",
+					"      }",
+					"      return { ...entry, computed };",
+					"    });",
+					"    const index = new Map(entries.map(e => [e.slug, e]));",
+					"    _store.set(configDir, { ...col, entries, index });",
+					"  }",
+					"}",
+					"",
+					`export const collections = ${json};`,
+				];
+
+				return recomputeCode.join("\n");
 			}
 			if (id === NOOP_MODULE_ID) {
 				return CLIENT_NOOP_CODE;
+			}
+		},
+
+		transform(code: string, id: string, options?: { ssr?: boolean }) {
+			if (!isProduction()) return;
+			if (!options?.ssr) return;
+			if (id.includes("node_modules")) return;
+			if (id === RESOLVED_VIRTUAL_MODULE_ID) return;
+			if (
+				/from\s+["']vike-content-collection["']/.test(code) ||
+				/import\s*\(\s*["']vike-content-collection["']\s*\)/.test(code)
+			) {
+				return {
+					code: `import "${VIRTUAL_MODULE_ID}";\n${code}`,
+					map: null,
+				};
 			}
 		},
 
