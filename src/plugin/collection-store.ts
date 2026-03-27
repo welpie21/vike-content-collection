@@ -156,6 +156,8 @@ export function hydrateGlobalStore(data: SerializableCollections): void {
 	const store = getGlobalStore();
 
 	for (const [configDir, collectionData] of Object.entries(data)) {
+		if (collectionData.entries.length === 0) continue;
+
 		const existing = store.get(configDir);
 		if (existing && existing.entries.length > 0) continue;
 
