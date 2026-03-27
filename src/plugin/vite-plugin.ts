@@ -714,6 +714,8 @@ export function vikeContentCollectionPlugin(
 		},
 
 		async buildStart() {
+			const alreadyPopulated = store.getAll().some((c) => c.entries.length > 0);
+			if (alreadyPopulated) return;
 			await scanAndProcess();
 		},
 
