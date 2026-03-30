@@ -23,7 +23,8 @@ export {
 export {
 	getAdjacentEntries,
 	getBreadcrumbs,
-	getCollectionTree,
+	getContentCollection,
+	getContentCollections,
 	getEntryUrl,
 } from "./runtime/navigation.js";
 export { reference } from "./runtime/reference.js";

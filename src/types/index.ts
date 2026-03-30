@@ -270,3 +270,10 @@ export type CollectionEntryFilter<T, C = Record<string, unknown>> =
 export type CollectionEntryFilterInput<T, C = Record<string, unknown>> =
 	| CollectionEntryFilter<T, C>
 	| CollectionEntryFilter<T, C>[];
+
+/** A registered content collection. */
+export interface ContentCollection {
+	name: string;
+	path: string;
+	type: "content" | "data" | "both";
+}
