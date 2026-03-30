@@ -16,7 +16,7 @@ export function defineCollection<
 	S extends ZodSchema,
 	R extends Record<string, unknown>,
 >(config: {
-	type?: "content" | "data";
+	type?: "content" | "data" | "both";
 	schema: S;
 	computed: {
 		[K in keyof R]: (input: ComputedFieldInput<InferZod<S>>) => R[K];
@@ -24,7 +24,7 @@ export function defineCollection<
 	slug?: (input: SlugInput<InferZod<S>>) => string;
 	contentPath?: string;
 }): {
-	type?: "content" | "data";
+	type?: "content" | "data" | "both";
 	schema: S;
 	computed: {
 		[K in keyof R]: (input: ComputedFieldInput<InferZod<S>>) => R[K];
@@ -35,12 +35,12 @@ export function defineCollection<
 	contentPath?: string;
 };
 export function defineCollection<S extends ZodSchema>(config: {
-	type?: "content" | "data";
+	type?: "content" | "data" | "both";
 	schema: S;
 	slug?: (input: SlugInput<InferZod<S>>) => string;
 	contentPath?: string;
 }): {
-	type?: "content" | "data";
+	type?: "content" | "data" | "both";
 	schema: S;
 	/** @internal Type-level only — holds computed return types for generated type extraction. */
 	_computedReturns?: Record<string, never>;

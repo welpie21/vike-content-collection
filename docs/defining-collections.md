@@ -55,7 +55,7 @@ The extended config supports these fields:
 | Field         | Type       | Description                                              |
 | ------------- | ---------- | -------------------------------------------------------- |
 | `schema`      | `ZodSchema` | **Required.** Zod schema for validating frontmatter     |
-| `type`        | `'content' \| 'data'` | Collection type (default: `'content'`)       |
+| `type`        | `'content' \| 'data' \| 'both'` | Collection type (default: `'content'`)       |
 | `computed`    | `Record<string, Function>` | Functions that derive extra data per entry |
 | `slug`        | `Function` | Custom slug generation                                   |
 | `contentPath` | `string`   | Override the folder inside the content root to fetch files from |
@@ -146,6 +146,39 @@ social:
 ```
 
 This entry has the slug `"jane-doe"` and is accessible via `getCollection('authors')`.
+
+## Mixed collections (both)
+
+When a single collection contains both content files (`.md`/`.mdx`) and data files (`.json`/`.yaml`/`.toml`), set `type: 'both'`. The plugin scans for all supported file extensions and selects the correct parser per-file based on its extension:
+
+- `.md` / `.mdx` files are parsed as content (frontmatter becomes `metadata`, body becomes `content`)
+- `.json` / `.yaml` / `.yml` / `.toml` files are parsed as data (entire file becomes `metadata`, `content` is an empty string)
+
+```ts
+// pages/projects/+Content.ts
+import { z } from 'zod'
+
+export const Content = {
+  type: 'both',
+  schema: z.object({
+    title: z.string(),
+    description: z.string().optional(),
+  })
+}
+```
+
+**Example directory structure:**
+
+```
+pages/projects/
+├── +Content.ts
+├── my-project.mdx         # content entry (frontmatter + body)
+└── _meta.json              # data entry (entire file is metadata)
+```
+
+This is useful when a collection folder contains content files alongside metadata files (like folder-level JSON configuration), and you want to query them all through a single collection.
+
+Your Zod schema must accommodate both file types. You can use optional fields, `z.union()`, or a discriminated union depending on your needs.
 
 ## Content directory configuration
 

@@ -289,7 +289,7 @@ Wrapping with defineCollection() gives full type inference -- metadata inside sl
 The extended config supports these fields:
 
 - schema (ZodSchema) -- Required. Zod schema for validating frontmatter.
-- type ('content' | 'data') -- Collection type (default: 'content').
+- type ('content' | 'data' | 'both') -- Collection type (default: 'content').
 - computed (Record<string, Function>) -- Functions that derive extra data per entry.
 - slug (Function) -- Custom slug generation.
 - contentPath (string) -- Override the folder inside the content root to fetch files from.
@@ -376,6 +376,28 @@ social:
 ```
 
 This entry has the slug "jane-doe" and is accessible via getCollection('authors').
+
+## Mixed collections (both)
+
+When a single collection contains both content files (.md/.mdx) and data files (.json/.yaml/.toml), set type: 'both'. The plugin scans for all supported file extensions and selects the correct parser per-file based on its extension:
+
+- .md / .mdx files are parsed as content (frontmatter becomes metadata, body becomes content)
+- .json / .yaml / .yml / .toml files are parsed as data (entire file becomes metadata, content is an empty string)
+
+```ts
+// pages/projects/+Content.ts
+import { z } from 'zod'
+
+export const Content = {
+  type: 'both',
+  schema: z.object({
+    title: z.string(),
+    description: z.string().optional(),
+  })
+}
+```
+
+Your Zod schema must accommodate both file types. You can use optional fields, z.union(), or a discriminated union depending on your needs.
 
 ## Content directory configuration
 
@@ -934,7 +956,7 @@ Create a declaration file (e.g. src/vite-env.d.ts or any .d.ts file included in 
 ```ts
 declare module 'virtual:content-collection' {
   export const collections: Record<string, {
-    type: 'content' | 'data'
+    type: 'content' | 'data' | 'both'
     entries: Array<{
       filePath: string
       slug: string
@@ -1605,7 +1627,7 @@ import { collections } from 'virtual:content-collection'
 
 collections is a record keyed by the directory path of each +Content.ts. Each value contains:
 
-- type ('content' | 'data') -- Collection type
+- type ('content' | 'data' | 'both') -- Collection type
 - entries (Array) -- Array of serialized entry objects
 
 Each entry in the array has filePath, slug, metadata, content, computed, lastModified (ISO string or undefined), and _isDraft.
@@ -1618,7 +1640,7 @@ To use the virtual module in TypeScript, add a type declaration:
 // src/vite-env.d.ts
 declare module 'virtual:content-collection' {
   export const collections: Record<string, {
-    type: 'content' | 'data'
+    type: 'content' | 'data' | 'both'
     entries: Array<{
       filePath: string
       slug: string

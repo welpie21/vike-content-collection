@@ -165,6 +165,16 @@ describe("CollectionStore", () => {
 			expect(entry.content).toBe("Content of post 0");
 		});
 
+		it("preserves type: 'both' in serialized output", () => {
+			const collection = makeCollection("mixed", "/pages/mixed");
+			collection.type = "both";
+			store.set("/pages/mixed", collection);
+
+			const serialized = store.toSerializable();
+
+			expect(serialized["/pages/mixed"].type).toBe("both");
+		});
+
 		it("serializes multiple collections", () => {
 			store.set("/pages/blog", makeCollection("blog", "/pages/blog", 1));
 			store.set("/pages/docs", makeCollection("docs", "/pages/docs", 3));
@@ -487,6 +497,44 @@ describe("hydrateGlobalStore", () => {
 		expect(store.getByName("blog")?.entries).toHaveLength(1);
 		expect(store.getByName("docs")?.entries).toHaveLength(2);
 		expect(store.getByName("docs")?.type).toBe("data");
+	});
+
+	it("hydrates a collection with type: 'both'", () => {
+		hydrateGlobalStore({
+			"/content/mixed": {
+				name: "mixed",
+				type: "both",
+				entries: [
+					{
+						filePath: "/content/mixed/post.mdx",
+						slug: "post",
+						metadata: { title: "Post" },
+						content: "# Post body",
+						computed: {},
+						lastModified: undefined,
+						_isDraft: false,
+					},
+					{
+						filePath: "/content/mixed/meta.json",
+						slug: "meta",
+						metadata: { label: "Section" },
+						content: "",
+						computed: {},
+						lastModified: undefined,
+						_isDraft: false,
+					},
+				],
+			},
+		});
+
+		const store = getGlobalStore();
+		const collection = store.getByName("mixed");
+
+		expect(collection).toBeDefined();
+		expect(collection?.type).toBe("both");
+		expect(collection?.entries).toHaveLength(2);
+		expect(collection?.entries[0].content).toBe("# Post body");
+		expect(collection?.entries[1].content).toBe("");
 	});
 
 	it("round-trips through toSerializable", () => {

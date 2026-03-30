@@ -107,7 +107,7 @@ Create a declaration file (e.g. `src/vite-env.d.ts` or any `.d.ts` file included
 ```ts
 declare module 'virtual:content-collection' {
   export const collections: Record<string, {
-    type: 'content' | 'data'
+    type: 'content' | 'data' | 'both'
     entries: Array<{
       filePath: string
       slug: string

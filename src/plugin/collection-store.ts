@@ -13,7 +13,7 @@ export interface CollectionEntry {
 
 export interface Collection {
 	name: string;
-	type: "content" | "data";
+	type: "content" | "data" | "both";
 	configDir: string;
 	configPath: string;
 	markdownDir: string;
@@ -129,7 +129,7 @@ export type SerializableCollections = Record<
 	string,
 	{
 		name: string;
-		type: "content" | "data";
+		type: "content" | "data" | "both";
 		entries: SerializableEntry[];
 	}
 >;

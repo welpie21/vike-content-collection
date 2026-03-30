@@ -37,6 +37,16 @@ describe("defineCollection", () => {
 		expect(config.contentPath).toBe("articles");
 	});
 
+	it("preserves type: 'both'", () => {
+		const schema = z.object({ title: z.string() });
+		const config = defineCollection({
+			type: "both",
+			schema,
+		});
+
+		expect(config.type).toBe("both");
+	});
+
 	it("works with a minimal config (schema only)", () => {
 		const schema = z.object({ title: z.string() });
 		const config = defineCollection({ schema });

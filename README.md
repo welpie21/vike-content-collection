@@ -20,7 +20,7 @@ Define a [Zod](https://zod.dev/) schema, drop in your markdown files, and get fu
 
 - **Zod schema validation** -- frontmatter is parsed and validated with precise error reporting (file, line, column)
 - **Full type inference** -- auto-generated declaration file powers typesafe `getCollection()`, `getCollectionEntry()`, and `findCollectionEntries()`
-- **Markdown, MDX & data collections** -- `.md` and `.mdx` files with frontmatter, or `.json` / `.yaml` / `.toml` data files
+- **Markdown, MDX & data collections** -- `.md` and `.mdx` files with frontmatter, `.json` / `.yaml` / `.toml` data files, or `type: 'both'` for mixed collections
 - **Built-in rendering** -- markdown and MDX to HTML via unified/remark/rehype, with heading extraction
 - **Pluggable renderers** -- use the built-in markdown or MDX renderer, or implement your own `ContentRenderer`
 - **Computed fields** -- derive reading time, excerpts, or any value from each entry
@@ -191,6 +191,20 @@ export const Content = {
 ```
 
 Each file becomes one entry. The `content` field is an empty string for data entries.
+
+### Mixed collections
+
+Set `type: 'both'` to include both content (`.md`/`.mdx`) and data (`.json`/`.yaml`/`.toml`) files in a single collection. The plugin selects the correct parser per-file based on extension:
+
+```ts
+export const Content = {
+  type: 'both',
+  schema: z.object({
+    title: z.string(),
+    description: z.string().optional(),
+  })
+}
+```
 
 ### Content directory
 
@@ -661,7 +675,7 @@ Other Vite plugins or app code can import collection data directly:
 import { collections } from 'virtual:content-collection'
 ```
 
-`collections` is a record keyed by collection directory path. Each value contains `type` (`"content"` or `"data"`) and an `entries` array.
+`collections` is a record keyed by collection directory path. Each value contains `type` (`"content"`, `"data"`, or `"both"`) and an `entries` array.
 
 ---
 
