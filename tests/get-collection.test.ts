@@ -8,6 +8,7 @@ import {
 	findCollectionEntries,
 	getCollection,
 	getCollectionEntry,
+	getCollectionTree,
 } from "../src/runtime/get-collection";
 
 function makeCollection(
@@ -37,6 +38,7 @@ function makeCollection(
 		markdownDir: configDir,
 		entries,
 		index: new Map(entries.map((e) => [e.slug, e])),
+		tree: { name: "", fullName: "", children: [] },
 	};
 }
 
@@ -271,5 +273,247 @@ describe("findCollectionEntries", () => {
 		const entries = findCollectionEntries("blog", () => true);
 
 		expect(entries[0]).not.toHaveProperty("lineMap");
+	});
+});
+
+function makeCollectionWithSlugs(
+	name: string,
+	configDir: string,
+	slugs: string[],
+): Collection {
+	const entries = slugs.map((slug) => ({
+		filePath: `${configDir}/${slug}.md`,
+		slug,
+		metadata: { title: slug },
+		content: "",
+		computed: {},
+		lastModified: undefined,
+		_isDraft: false,
+		lineMap: {},
+	}));
+
+	return {
+		name,
+		type: "content" as const,
+		configDir,
+		configPath: `${configDir}/+Content.ts`,
+		markdownDir: configDir,
+		entries,
+		index: new Map(entries.map((e) => [e.slug, e])),
+		tree: { name: "", fullName: "", children: [] },
+	};
+}
+
+describe("getCollectionTree", () => {
+	beforeEach(() => {
+		resetGlobalStore();
+	});
+
+	it("returns a root FolderNode with children from top-level slugs", () => {
+		const store = getGlobalStore();
+		store.set(
+			"/pages/blog",
+			makeCollectionWithSlugs("blog", "/pages/blog", [
+				"hello-world",
+				"second-post",
+			]),
+		);
+
+		const root = getCollectionTree("blog");
+
+		expect(root.name).toBe("");
+		expect(root.children).toHaveLength(2);
+		expect(root.children[0].name).toBe("hello-world");
+		expect(root.children[0].fullName).toBe("hello-world");
+		expect("entry" in root.children[0]).toBe(true);
+		expect((root.children[0] as any).entry.slug).toBe("hello-world");
+		expect(root.children[1].name).toBe("second-post");
+		expect(root.children[1].fullName).toBe("second-post");
+	});
+
+	it("builds a nested tree with FolderNodes and EntryNodes", () => {
+		const store = getGlobalStore();
+		store.set(
+			"/pages/docs",
+			makeCollectionWithSlugs("docs", "/pages/docs", [
+				"intro",
+				"guides/installation",
+				"guides/configuration",
+				"api/overview",
+			]),
+		);
+
+		const root = getCollectionTree("docs");
+
+		expect(root.children).toHaveLength(3);
+		expect(root.children[0].name).toBe("intro");
+		expect(root.children[0].fullName).toBe("intro");
+		expect("entry" in root.children[0]).toBe(true);
+
+		const guides = root.children[1] as any;
+		expect(guides.name).toBe("guides");
+		expect(guides.fullName).toBe("guides");
+		expect(guides.children).toHaveLength(2);
+		expect(guides.children[0].name).toBe("installation");
+		expect(guides.children[0].fullName).toBe("guides/installation");
+		expect("entry" in guides.children[0]).toBe(true);
+		expect(guides.children[1].name).toBe("configuration");
+
+		const api = root.children[2] as any;
+		expect(api.name).toBe("api");
+		expect(api.fullName).toBe("api");
+		expect(api.children).toHaveLength(1);
+		expect(api.children[0].fullName).toBe("api/overview");
+	});
+
+	it("creates intermediate FolderNodes with their path as fullName", () => {
+		const store = getGlobalStore();
+		store.set(
+			"/pages/docs",
+			makeCollectionWithSlugs("docs", "/pages/docs", [
+				"guides/getting-started",
+			]),
+		);
+
+		const root = getCollectionTree("docs");
+
+		expect(root.children).toHaveLength(1);
+		expect(root.children[0].name).toBe("guides");
+		expect(root.children[0].fullName).toBe("guides");
+		expect("children" in root.children[0]).toBe(true);
+
+		const folder = root.children[0] as any;
+		expect(folder.children[0].name).toBe("getting-started");
+		expect(folder.children[0].fullName).toBe("guides/getting-started");
+		expect("entry" in folder.children[0]).toBe(true);
+	});
+
+	it("sets fullName on FolderNode when segment is also an entry", () => {
+		const store = getGlobalStore();
+		store.set(
+			"/pages/docs",
+			makeCollectionWithSlugs("docs", "/pages/docs", [
+				"guides",
+				"guides/installation",
+			]),
+		);
+
+		const root = getCollectionTree("docs");
+
+		expect(root.children).toHaveLength(1);
+		const folder = root.children[0] as any;
+		expect(folder.name).toBe("guides");
+		expect(folder.fullName).toBe("guides");
+		expect(folder.children).toHaveLength(1);
+		expect(folder.children[0].fullName).toBe("guides/installation");
+		expect("entry" in folder.children[0]).toBe(true);
+	});
+
+	it("handles deeply nested slugs", () => {
+		const store = getGlobalStore();
+		store.set(
+			"/pages/docs",
+			makeCollectionWithSlugs("docs", "/pages/docs", ["a/b/c/d"]),
+		);
+
+		const root = getCollectionTree("docs");
+
+		expect(root.children).toHaveLength(1);
+		const a = root.children[0] as any;
+		expect(a.name).toBe("a");
+		expect(a.fullName).toBe("a");
+		expect(a.children[0].name).toBe("b");
+		expect(a.children[0].fullName).toBe("a/b");
+		expect(a.children[0].children[0].name).toBe("c");
+
+		const d = a.children[0].children[0].children[0];
+		expect(d.name).toBe("d");
+		expect(d.fullName).toBe("a/b/c/d");
+		expect("entry" in d).toBe(true);
+	});
+
+	it("returns empty root for collection with no entries", () => {
+		const store = getGlobalStore();
+		store.set(
+			"/pages/blog",
+			makeCollectionWithSlugs("blog", "/pages/blog", []),
+		);
+
+		const root = getCollectionTree("blog");
+
+		expect(root.name).toBe("");
+		expect(root.children).toEqual([]);
+		expect(root.entry).toBeUndefined();
+	});
+
+	it("throws for unknown collection", () => {
+		expect(() => getCollectionTree("missing")).toThrow(
+			/Collection "missing" not found/,
+		);
+	});
+
+	it("places empty-slug entry on the root FolderNode", () => {
+		const store = getGlobalStore();
+		store.set(
+			"/pages/docs",
+			makeCollectionWithSlugs("docs", "/pages/docs", [
+				"",
+				"intro",
+				"guides/setup",
+			]),
+		);
+
+		const root = getCollectionTree("docs");
+
+		expect(root.entry).toBeDefined();
+		expect(root.entry?.slug).toBe("");
+		expect(root.fullName).toBe("");
+		expect(root.children).toHaveLength(2);
+		expect(root.children[0].name).toBe("intro");
+		expect(root.children[1].name).toBe("guides");
+	});
+
+	it("reflects tree updates after updateEntry", () => {
+		const store = getGlobalStore();
+		store.set(
+			"/pages/blog",
+			makeCollectionWithSlugs("blog", "/pages/blog", ["post-a"]),
+		);
+
+		store.updateEntry("/pages/blog", {
+			filePath: "/pages/blog/guides/new.md",
+			slug: "guides/new",
+			metadata: {},
+			content: "",
+			computed: {},
+			lastModified: undefined,
+			_isDraft: false,
+			lineMap: {},
+		});
+
+		const root = getCollectionTree("blog");
+
+		expect(root.children).toHaveLength(2);
+		expect(root.children[0].name).toBe("post-a");
+		expect(root.children[1].name).toBe("guides");
+		expect((root.children[1] as any).children[0].name).toBe("new");
+	});
+
+	it("reflects tree updates after removeEntry", () => {
+		const store = getGlobalStore();
+		store.set(
+			"/pages/blog",
+			makeCollectionWithSlugs("blog", "/pages/blog", [
+				"post-a",
+				"guides/intro",
+			]),
+		);
+
+		store.removeEntry("/pages/blog", "guides/intro");
+
+		const root = getCollectionTree("blog");
+
+		expect(root.children).toHaveLength(1);
+		expect(root.children[0].name).toBe("post-a");
 	});
 });

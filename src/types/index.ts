@@ -1,8 +1,39 @@
 import type { ZodType } from "zod";
 
+export type {
+	CollectionTreeNode,
+	EntryNode,
+	FolderNode,
+} from "../plugin/collection-store.js";
 export type { ValidationIssue } from "../plugin/errors.js";
 export type { MetadataLineMap, ParsedMarkdown } from "../plugin/markdown.js";
 export type { ContentCollectionPluginOptions } from "../plugin/vite-plugin.js";
+
+/** A typed leaf node in the collection tree, carrying a `TypedCollectionEntry`. */
+export interface TypedEntryNode<
+	TMetadata,
+	TComputed = Record<string, unknown>,
+> {
+	name: string;
+	fullName: string;
+	entry: TypedCollectionEntry<TMetadata, TComputed>;
+}
+
+/** A typed directory node in the collection tree. */
+export interface TypedFolderNode<
+	TMetadata,
+	TComputed = Record<string, unknown>,
+> {
+	name: string;
+	fullName: string;
+	children: TypedTreeNode<TMetadata, TComputed>[];
+	entry?: TypedCollectionEntry<TMetadata, TComputed>;
+}
+
+/** A typed node in the collection entry tree. Discriminate with `"children" in node` (folder) vs `"entry" in node` (leaf). Note that folder nodes may also carry an `entry` when the folder path matches an actual content entry. */
+export type TypedTreeNode<TMetadata, TComputed = Record<string, unknown>> =
+	| TypedFolderNode<TMetadata, TComputed>
+	| TypedEntryNode<TMetadata, TComputed>;
 
 export interface ContentCollectionConfig {
 	Content: ZodType;
@@ -193,16 +224,6 @@ export interface TocNode {
 	text: string;
 	id: string;
 	children: TocNode[];
-}
-
-/** A node in the collection hierarchy tree. */
-export interface CollectionTreeNode {
-	/** Segment name (e.g. `"guides"`). */
-	name: string;
-	/** Full collection name (e.g. `"docs/guides"`), or empty string for intermediate-only nodes. */
-	fullName: string;
-	/** Child collection nodes. */
-	children: CollectionTreeNode[];
 }
 
 /** Options for finding related entries by shared metadata values. */

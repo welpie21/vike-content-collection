@@ -7,7 +7,6 @@ import {
 import {
 	getAdjacentEntries,
 	getBreadcrumbs,
-	getCollectionTree,
 	getEntryUrl,
 } from "../src/runtime/navigation";
 
@@ -38,6 +37,7 @@ function makeCollection(
 		markdownDir: configDir,
 		entries,
 		index: new Map(entries.map((e) => [e.slug, e])),
+		tree: [],
 	};
 }
 
@@ -205,80 +205,6 @@ describe("getAdjacentEntries", () => {
 		expect(() => getAdjacentEntries("missing", "post-0")).toThrow(
 			/Collection "missing" not found/,
 		);
-	});
-});
-
-describe("getCollectionTree", () => {
-	beforeEach(() => {
-		resetGlobalStore();
-	});
-
-	it("builds a flat tree from top-level collections", () => {
-		const store = getGlobalStore();
-		store.set("/pages/blog", makeCollection("blog", "/pages/blog"));
-		store.set("/pages/docs", makeCollection("docs", "/pages/docs"));
-
-		const tree = getCollectionTree();
-
-		expect(tree).toHaveLength(2);
-		const names = tree.map((n) => n.name).sort();
-		expect(names).toEqual(["blog", "docs"]);
-		expect(tree.find((n) => n.name === "blog")?.fullName).toBe("blog");
-		expect(tree.find((n) => n.name === "blog")?.children).toEqual([]);
-	});
-
-	it("builds a nested tree from hierarchical collections", () => {
-		const store = getGlobalStore();
-		store.set("/pages/docs", makeCollection("docs", "/pages/docs"));
-		store.set(
-			"/pages/docs/guides",
-			makeCollection("docs/guides", "/pages/docs/guides"),
-		);
-		store.set("/pages/docs/api", makeCollection("docs/api", "/pages/docs/api"));
-
-		const tree = getCollectionTree();
-
-		expect(tree).toHaveLength(1);
-		expect(tree[0].name).toBe("docs");
-		expect(tree[0].fullName).toBe("docs");
-		expect(tree[0].children).toHaveLength(2);
-
-		const childNames = tree[0].children.map((n) => n.name).sort();
-		expect(childNames).toEqual(["api", "guides"]);
-	});
-
-	it("creates intermediate nodes with empty fullName", () => {
-		const store = getGlobalStore();
-		store.set(
-			"/pages/docs/guides",
-			makeCollection("docs/guides", "/pages/docs/guides"),
-		);
-
-		const tree = getCollectionTree();
-
-		expect(tree).toHaveLength(1);
-		expect(tree[0].name).toBe("docs");
-		expect(tree[0].fullName).toBe("");
-		expect(tree[0].children).toHaveLength(1);
-		expect(tree[0].children[0].fullName).toBe("docs/guides");
-	});
-
-	it("returns empty array when no collections exist", () => {
-		const tree = getCollectionTree();
-		expect(tree).toEqual([]);
-	});
-
-	it("handles deeply nested collections", () => {
-		const store = getGlobalStore();
-		store.set("/pages/a/b/c", makeCollection("a/b/c", "/pages/a/b/c"));
-
-		const tree = getCollectionTree();
-
-		expect(tree).toHaveLength(1);
-		expect(tree[0].name).toBe("a");
-		expect(tree[0].children[0].name).toBe("b");
-		expect(tree[0].children[0].children[0].name).toBe("c");
-		expect(tree[0].children[0].children[0].fullName).toBe("a/b/c");
 	});
 });
 

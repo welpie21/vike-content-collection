@@ -26,7 +26,7 @@ Define a [Zod](https://zod.dev/) schema, drop in your markdown files, and get fu
 - **Computed fields** -- derive reading time, excerpts, or any value from each entry
 - **Collection references** -- cross-collection slug validation
 - **Draft mode** -- drafts visible in dev, excluded in production
-- **Navigation helpers** -- breadcrumbs, next/previous links, entry URLs, and collection tree for site navigation
+- **Navigation helpers** -- breadcrumbs, next/previous links, entry URLs, and collection entry tree for site navigation
 - **Content discovery** -- related entries by shared metadata, cross-collection merge, unique values extraction
 - **Content series** -- ordered multi-part content sequences with series-aware navigation
 - **i18n support** -- locale detection and localized entry lookup via slug suffix or metadata
@@ -522,15 +522,15 @@ const { prev, next } = getAdjacentEntries('blog', 'my-post', {
 })
 ```
 
-#### `getCollectionTree()`
+#### `getCollectionTree(name)`
 
-Get all collections as a hierarchical tree (for sidebars):
+Get collection entries as a hierarchical tree based on slug paths (for sidebars):
 
 ```ts
 import { getCollectionTree } from 'vike-content-collection'
 
-const tree = getCollectionTree()
-// [{ name: 'docs', fullName: 'docs', children: [...] }, ...]
+const tree = getCollectionTree('docs')
+// [{ name: 'intro', fullName: 'intro', children: [] }, { name: 'guides', fullName: '', children: [...] }]
 ```
 
 #### `buildTocTree(headings)`
@@ -750,7 +750,7 @@ import {
   groupBy,                      // group entries by metadata key
   getBreadcrumbs,               // breadcrumb trail from collection path
   getAdjacentEntries,           // previous/next entries in a collection
-  getCollectionTree,            // collection hierarchy as a tree
+  getCollectionTree,            // entry hierarchy as a tree from slug paths
   getEntryUrl,                  // URL path for a collection entry
   getRelatedEntries,            // related entries by shared metadata
   mergeCollections,             // combine entries from multiple collections
@@ -792,6 +792,11 @@ import type {
   BreadcrumbOptions,
   AdjacentEntries,
   CollectionTreeNode,
+  EntryNode,
+  FolderNode,
+  TypedTreeNode,
+  TypedEntryNode,
+  TypedFolderNode,
   EntryUrlOptions,
   RelatedEntriesOptions,
   SeriesResult,
@@ -826,7 +831,10 @@ import type {
 | `BreadcrumbOptions` | Options for `getBreadcrumbs()`: `labels`, `basePath`, `includeCurrent`, `currentLabel` |
 | `AdjacentEntries<T>` | `{ prev: TypedCollectionEntry \| undefined, next: TypedCollectionEntry \| undefined }` |
 | `TocNode` | `{ depth, text, id, children: TocNode[] }` |
-| `CollectionTreeNode` | `{ name, fullName, children: CollectionTreeNode[] }` |
+| `TypedTreeNode<T>` | `TypedEntryNode<T> \| TypedFolderNode<T>` — returned by `getCollectionTree()` |
+| `TypedEntryNode<T>` | `{ name, fullName, entry: TypedCollectionEntry<T> }` |
+| `TypedFolderNode<T>` | `{ name, fullName, children: TypedTreeNode<T>[] }` |
+| `CollectionTreeNode` | `EntryNode \| FolderNode` — internal (untyped) tree nodes |
 | `EntryUrlOptions` | Options for `getEntryUrl()`: `basePath`, `extension` |
 | `RelatedEntriesOptions` | Options for `getRelatedEntries()`: `by`, `limit` |
 | `SeriesResult<T>` | Result of `getSeries()`: `name`, `entries`, `currentIndex`, `total`, `prev`, `next` |
