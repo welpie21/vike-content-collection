@@ -51,6 +51,7 @@ Config export from `vike-content-collection/config`:
 - Collection names are derived from directory paths (e.g. `pages/blog/+Content.ts` → `"blog"`)
 - Content collections (default): `.md` and `.mdx` files with YAML frontmatter validated against the schema
 - Data collections (`type: 'data'`): `.json`, `.yaml`/`.yml`, `.toml` files validated against the schema
+- Mixed collections (`type: 'both'`): both content and data files in one collection, parser selected per-file by extension
 - Rendering is pluggable via the `ContentRenderer` interface; built-in renderers for markdown and MDX
 - Type declarations are auto-generated at `.vike-content-collection/types.d.ts` (configurable via `declarationOutDir` plugin option)
 - Virtual module `virtual:content-collection` exposes serialized collection data to other plugins

@@ -28,8 +28,8 @@ export interface SlugInput<TMetadata = Record<string, unknown>> {
 
 /** Extended config object for +Content.ts that supports computed fields, custom slugs, etc. */
 export interface ContentCollectionDefinition<S extends ZodType = ZodType> {
-	/** Whether this is a markdown content collection or a data-only collection. Defaults to 'content'. */
-	type?: "content" | "data";
+	/** Whether this is a markdown content collection, a data-only collection, or both. Defaults to 'content'. */
+	type?: "content" | "data" | "both";
 	/** Zod schema for validating metadata (content) or the full data file (data). */
 	schema: S;
 	/** Functions that derive additional data from each entry. */
@@ -46,7 +46,7 @@ export interface ContentCollectionDefinition<S extends ZodType = ZodType> {
 
 /** Resolved config after normalizing a plain schema or definition object. */
 export interface ResolvedContentConfig {
-	type: "content" | "data";
+	type: "content" | "data" | "both";
 	schema: ZodType;
 	computed: Record<string, (input: ComputedFieldInput) => unknown>;
 	slug: ((input: SlugInput) => string) | null;

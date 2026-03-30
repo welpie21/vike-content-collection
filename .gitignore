@@ -1,3 +1,4 @@
 node_modules/
 dist/
 .vike-content-collection/
+.DS_Store

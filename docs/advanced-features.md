@@ -355,7 +355,7 @@ import { collections } from 'virtual:content-collection'
 
 | Field     | Type                   | Description                          |
 | --------- | ---------------------- | ------------------------------------ |
-| `type`    | `'content' \| 'data'`  | Collection type                     |
+| `type`    | `'content' \| 'data' \| 'both'` | Collection type              |
 | `entries` | `Array`                | Array of serialized entry objects    |
 
 Each entry in the array has `filePath`, `slug`, `metadata`, `content`, `computed`, `lastModified` (ISO string or undefined), and `_isDraft`.
@@ -370,7 +370,7 @@ To use the virtual module in TypeScript, add a type declaration:
 // src/vite-env.d.ts
 declare module 'virtual:content-collection' {
   export const collections: Record<string, {
-    type: 'content' | 'data'
+    type: 'content' | 'data' | 'both'
     entries: Array<{
       filePath: string
       slug: string

@@ -24,6 +24,7 @@ const NOOP_MODULE_ID = "\0vike-content-collection-noop";
 const CONTENT_CONFIG_PATTERN = /\+Content\.(ts|js|mts|mjs)$/;
 const MARKDOWN_PATTERN = /\.mdx?$/i;
 const DATA_FILE_PATTERN = /\.(json|ya?ml|toml)$/i;
+const BOTH_PATTERN = /\.(mdx?|json|ya?ml|toml)$/i;
 
 const CLIENT_NOOP_CODE = [
 	"export const vikeContentCollectionPlugin = () => ({});",
@@ -370,7 +371,7 @@ export function vikeContentCollectionPlugin(
 
 	async function findContentFiles(
 		dir: string,
-		type: "content" | "data",
+		type: "content" | "data" | "both",
 	): Promise<string[]> {
 		try {
 			await access(dir);
@@ -378,7 +379,12 @@ export function vikeContentCollectionPlugin(
 			return [];
 		}
 
-		const pattern = type === "data" ? DATA_FILE_PATTERN : MARKDOWN_PATTERN;
+		const pattern =
+			type === "data"
+				? DATA_FILE_PATTERN
+				: type === "both"
+					? BOTH_PATTERN
+					: MARKDOWN_PATTERN;
 		const entries = await readdir(dir, { withFileTypes: true });
 
 		const nested = await Promise.all(
@@ -460,7 +466,11 @@ export function vikeContentCollectionPlugin(
 		let content: string;
 		let lineMap: Record<string, number>;
 
-		if (config.type === "data") {
+		const useDataParser =
+			config.type === "data" ||
+			(config.type === "both" && DATA_FILE_PATTERN.test(filePath));
+
+		if (useDataParser) {
 			const parsed = parseDataFile(raw, filePath);
 			rawMetadata = parsed.data;
 			content = "";
@@ -550,7 +560,7 @@ export function vikeContentCollectionPlugin(
 			configPath: string;
 			markdownDir: string;
 			name: string;
-			type: "content" | "data";
+			type: "content" | "data" | "both";
 		},
 	): Promise<void> {
 		const config = configCache.get(collection.configPath);
