@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { access, readdir, readFile } from "node:fs/promises";
-import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { slug as githubSlug } from "github-slugger";
 import type { ZodSchema } from "zod";
 import type {
 	ComputedFieldInput,
@@ -42,7 +43,7 @@ const CLIENT_NOOP_CODE = [
 	"export const groupBy = () => new Map();",
 	"export const getBreadcrumbs = () => [];",
 	"export const getAdjacentEntries = () => ({ prev: undefined, next: undefined });",
-	"export const getCollectionTree = () => [];",
+	"export const getCollectionTree = () => ({ name: '', fullName: '', children: [] });",
 	"export const buildTocTree = () => [];",
 	"export const getRelatedEntries = () => [];",
 	"export const mergeCollections = () => [];",
@@ -428,9 +429,16 @@ export function vikeContentCollectionPlugin(
 		return nested.flat();
 	}
 
-	function deriveSlug(filePath: string): string {
-		const ext = extname(filePath);
-		return basename(filePath, ext);
+	function deriveSlug(filePath: string, collectionRoot: string): string {
+		const rel = relative(collectionRoot, filePath).replace(/\\/g, "/");
+		const path = rel.slice(0, -extname(rel).length || undefined);
+
+		const slug = path
+			.split("/")
+			.map((segment) => githubSlug(segment))
+			.join("/");
+
+		return slug.replace(/\/index$|^index$/, "");
 	}
 
 	function computeFields(
@@ -447,9 +455,10 @@ export function vikeContentCollectionPlugin(
 	function resolveSlug(
 		config: ResolvedContentConfig,
 		filePath: string,
+		markdownDir: string,
 		metadata: Record<string, unknown>,
 	): string {
-		const defaultSlug = deriveSlug(filePath);
+		const defaultSlug = deriveSlug(filePath, markdownDir);
 		if (!config.slug) return defaultSlug;
 		const input: SlugInput = { metadata, filePath, defaultSlug };
 		return config.slug(input);
@@ -458,6 +467,7 @@ export function vikeContentCollectionPlugin(
 	async function buildEntry(
 		filePath: string,
 		config: ResolvedContentConfig,
+		markdownDir: string,
 		lastModifiedMap?: Map<string, Date | undefined>,
 	): Promise<CollectionEntry> {
 		const raw = await readFile(filePath, "utf-8");
@@ -489,7 +499,7 @@ export function vikeContentCollectionPlugin(
 			lineMap,
 		);
 
-		const slug = resolveSlug(config, filePath, validatedMetadata);
+		const slug = resolveSlug(config, filePath, markdownDir, validatedMetadata);
 		const draftField = getDraftField();
 		const isDraft = !!validatedMetadata[draftField];
 
@@ -529,7 +539,7 @@ export function vikeContentCollectionPlugin(
 		}
 
 		const allEntries = await Promise.all(
-			files.map((file) => buildEntry(file, config, lastModifiedMap)),
+			files.map((file) => buildEntry(file, config, mdDir, lastModifiedMap)),
 		);
 
 		const entries: CollectionEntry[] = [];
@@ -550,6 +560,7 @@ export function vikeContentCollectionPlugin(
 			markdownDir: mdDir,
 			entries,
 			index,
+			tree: { name: "", fullName: "", children: [] },
 		});
 	}
 
@@ -575,7 +586,7 @@ export function vikeContentCollectionPlugin(
 		try {
 			await access(file);
 		} catch {
-			const slug = deriveSlug(file);
+			const slug = deriveSlug(file, collection.markdownDir);
 			store.removeEntry(collection.configDir, slug);
 			return;
 		}
@@ -585,7 +596,12 @@ export function vikeContentCollectionPlugin(
 			lastModifiedMap = await getLastModifiedBatch([file], root);
 		}
 
-		const entry = await buildEntry(file, config, lastModifiedMap);
+		const entry = await buildEntry(
+			file,
+			config,
+			collection.markdownDir,
+			lastModifiedMap,
+		);
 		const includeDrafts = shouldIncludeDrafts();
 
 		if (!includeDrafts && entry._isDraft) {
@@ -614,6 +630,7 @@ export function vikeContentCollectionPlugin(
 				markdownDir,
 				entries: [],
 				index: new Map(),
+				tree: { name: "", fullName: "", children: [] },
 			});
 		}
 
@@ -884,6 +901,7 @@ export function vikeContentCollectionPlugin(
 							markdownDir,
 							entries: [],
 							index: new Map(),
+							tree: { name: "", fullName: "", children: [] },
 						});
 					}
 

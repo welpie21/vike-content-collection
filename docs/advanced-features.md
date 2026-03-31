@@ -531,41 +531,62 @@ For headings `[H2, H3, H3, H2]`, `buildTocTree` returns:
 ]
 ```
 
-## Collection tree
+## Collection entry tree
 
-### `getCollectionTree()`
+### `getCollectionTree(name)`
 
-Returns the hierarchy of all registered collections as a tree. Useful for generating sidebars or site maps.
+Returns the entries of a collection organised as a hierarchical tree based on slug paths. Useful for generating sidebars, site maps, or nested navigation from collections whose entries use path-based slugs (e.g. `"guides/installation"`).
 
 ```ts
 import { getCollectionTree } from 'vike-content-collection'
 
-const tree = getCollectionTree()
+const tree = getCollectionTree('docs')
 ```
 
-### `CollectionTreeNode`
+### `TypedTreeNode<TMetadata, TComputed>`
 
-| Field      | Type                    | Description                                                         |
-| ---------- | ----------------------- | ------------------------------------------------------------------- |
-| `name`     | `string`                | Segment name (e.g. `"guides"`)                                      |
-| `fullName` | `string`                | Full collection name (e.g. `"docs/guides"`), empty for intermediate nodes |
-| `children` | `CollectionTreeNode[]`  | Child collection nodes                                               |
+The return type is `TypedTreeNode[]`, a discriminated union of two node types with typed entry data (metadata and computed fields are inferred from `CollectionMap` when available):
+
+**`TypedEntryNode`** — a leaf node carrying a typed entry.
+
+| Field      | Type                   | Description                        |
+| ---------- | ---------------------- | ---------------------------------- |
+| `name`     | `string`               | Segment name (e.g. `"intro"`)      |
+| `fullName` | `string`               | Full entry slug                    |
+| `entry`    | `TypedCollectionEntry` | The typed collection entry         |
+
+**`TypedFolderNode`** — a directory node containing children.
+
+| Field      | Type               | Description                                                              |
+| ---------- | ------------------ | ------------------------------------------------------------------------ |
+| `name`     | `string`           | Segment name (e.g. `"guides"`)                                           |
+| `fullName` | `string`           | Full entry slug if this folder is also an entry, otherwise `""`          |
+| `children` | `TypedTreeNode[]`  | Child nodes                                                               |
+
+You can distinguish them with `"children" in node` (folder) or `"entry" in node` (leaf).
 
 ### Example
 
-Given collections `"docs"`, `"docs/guides"`, `"docs/api"`, and `"blog"`:
+Given a `"docs"` collection with entries `"intro"`, `"guides/installation"`, `"guides/configuration"`, and `"api/overview"`:
 
 ```ts
 [
+  { name: 'intro', fullName: 'intro', entry: { slug: 'intro', ... } },
   {
-    name: 'docs', fullName: 'docs', children: [
-      { name: 'guides', fullName: 'docs/guides', children: [] },
-      { name: 'api', fullName: 'docs/api', children: [] },
+    name: 'guides', fullName: '', children: [
+      { name: 'installation', fullName: 'guides/installation', entry: { slug: 'guides/installation', ... } },
+      { name: 'configuration', fullName: 'guides/configuration', entry: { slug: 'guides/configuration', ... } },
     ]
   },
-  { name: 'blog', fullName: 'blog', children: [] },
+  {
+    name: 'api', fullName: '', children: [
+      { name: 'overview', fullName: 'api/overview', entry: { slug: 'api/overview', ... } },
+    ]
+  },
 ]
 ```
+
+If an entry exists at a path that also has children (e.g. slug `"guides"` alongside `"guides/installation"`), the path becomes a `FolderNode` with `fullName` set to the slug.
 
 ## Related entries
 

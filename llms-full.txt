@@ -14,7 +14,7 @@ Define a Zod schema, drop in your markdown files, and get fully typed content wi
 - Computed fields -- derive reading time, excerpts, or any value from each entry
 - Collection references -- cross-collection slug validation
 - Draft mode -- drafts visible in dev, excluded in production
-- Navigation helpers -- breadcrumbs, next/previous links, entry URLs, and collection tree for site navigation
+- Navigation helpers -- breadcrumbs, next/previous links, entry URLs, and collection entry tree for site navigation
 - Content discovery -- related entries by shared metadata, cross-collection merge, unique values extraction
 - Content series -- ordered multi-part content sequences with series-aware navigation
 - i18n support -- locale detection and localized entry lookup via slug suffix or metadata
@@ -1016,7 +1016,7 @@ Add the virtual module declaration as described in section 3 above. This error o
 
 # Advanced Features
 
-This guide covers the plugin's advanced capabilities: computed fields, collection references, custom slugs, draft mode, sorting, pagination, grouping, breadcrumbs, next/previous navigation, TOC tree, collection tree, related entries, merge collections, unique values, entry URL, content series, i18n locales, git integration, and the virtual module.
+This guide covers the plugin's advanced capabilities: computed fields, collection references, custom slugs, draft mode, sorting, pagination, grouping, breadcrumbs, next/previous navigation, TOC tree, collection entry tree, related entries, merge collections, unique values, entry URL, content series, i18n locales, git integration, and the virtual module.
 
 ## Computed fields
 
@@ -1412,39 +1412,60 @@ For headings [H2, H3, H3, H2], buildTocTree returns:
 ]
 ```
 
-## Collection tree
+## Collection entry tree
 
-### getCollectionTree()
+### getCollectionTree(name)
 
-Returns the hierarchy of all registered collections as a tree. Useful for generating sidebars or site maps.
+Returns the entries of a collection organised as a hierarchical tree based on slug paths. Useful for generating sidebars, site maps, or nested navigation from collections whose entries use path-based slugs (e.g. "guides/installation").
 
 ```ts
 import { getCollectionTree } from 'vike-content-collection'
 
-const tree = getCollectionTree()
+const tree = getCollectionTree('docs')
 ```
 
-### CollectionTreeNode
+### TypedTreeNode
 
-| Field      | Type                    | Description                                                         |
-| ---------- | ----------------------- | ------------------------------------------------------------------- |
-| name       | string                  | Segment name (e.g. "guides")                                        |
-| fullName   | string                  | Full collection name (e.g. "docs/guides"), empty for intermediate nodes |
-| children   | CollectionTreeNode[]    | Child collection nodes                                               |
+The return type is `TypedTreeNode[]`, a discriminated union: `TypedEntryNode | TypedFolderNode`. Entry data is fully typed (metadata/computed inferred from CollectionMap).
 
-Given collections "docs", "docs/guides", "docs/api", and "blog":
+**TypedEntryNode** — a leaf node carrying a typed entry.
+
+| Field    | Type                 | Description                   |
+| -------- | -------------------- | ----------------------------- |
+| name     | string               | Segment name (e.g. "intro")   |
+| fullName | string               | Full entry slug               |
+| entry    | TypedCollectionEntry | The typed collection entry    |
+
+**TypedFolderNode** — a directory node containing children.
+
+| Field    | Type             | Description                                                     |
+| -------- | ---------------- | --------------------------------------------------------------- |
+| name     | string           | Segment name (e.g. "guides")                                    |
+| fullName | string           | Full entry slug if this folder is also an entry, otherwise ""   |
+| children | TypedTreeNode[]  | Child nodes                                                      |
+
+Distinguish with `"children" in node` (folder) or `"entry" in node` (leaf).
+
+Given a "docs" collection with entries "intro", "guides/installation", "guides/configuration", and "api/overview":
 
 ```ts
 [
+  { name: 'intro', fullName: 'intro', entry: { slug: 'intro', ... } },
   {
-    name: 'docs', fullName: 'docs', children: [
-      { name: 'guides', fullName: 'docs/guides', children: [] },
-      { name: 'api', fullName: 'docs/api', children: [] },
+    name: 'guides', fullName: '', children: [
+      { name: 'installation', fullName: 'guides/installation', entry: { ... } },
+      { name: 'configuration', fullName: 'guides/configuration', entry: { ... } },
     ]
   },
-  { name: 'blog', fullName: 'blog', children: [] },
+  {
+    name: 'api', fullName: '', children: [
+      { name: 'overview', fullName: 'api/overview', entry: { ... } },
+    ]
+  },
 ]
 ```
+
+If an entry exists at a path that also has children, the path becomes a FolderNode with fullName set to the slug.
 
 ## Related entries
 

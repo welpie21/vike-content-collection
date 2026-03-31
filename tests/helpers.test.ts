@@ -287,6 +287,7 @@ function makeStoreCollection(
 		markdownDir: configDir,
 		entries,
 		index: new Map(entries.map((e) => [e.slug, e])),
+		tree: [],
 	};
 }
 

@@ -1,10 +1,10 @@
-import { getGlobalStore } from "../plugin/collection-store.js";
+import { type Collection, getGlobalStore } from "../plugin/collection-store.js";
 import type {
 	AdjacentEntries,
 	Breadcrumb,
 	BreadcrumbOptions,
 	CollectionMap,
-	CollectionTreeNode,
+	ContentCollection,
 	EntryUrlOptions,
 	InferComputed,
 	InferMetadata,
@@ -103,53 +103,32 @@ export function getAdjacentEntries(
 }
 
 /**
- * Build a tree representing the hierarchy of all registered collections.
- *
- * Each collection name is split on `"/"` and inserted into a tree structure.
- * Nodes that correspond to actual collections have their `fullName` populated;
- * intermediate-only nodes have an empty `fullName`.
+ * Returns a list of all registered content collections.
  */
-export function getCollectionTree(): CollectionTreeNode[] {
+export function getContentCollections(): ContentCollection[] {
+	return getGlobalStore().getAll().map(toContentCollection);
+}
+
+/**
+ * Returns a content collection by its path.
+ */
+export function getContentCollection(
+	path: string,
+): ContentCollection | undefined {
 	const store = getGlobalStore();
-	const collections = store.getAll();
-	const collectionNames = new Set(collections.map((c) => c.name));
+	const collection = store.getByName(path);
 
-	const root: CollectionTreeNode[] = [];
-	const rootLookup = new Map<string, CollectionTreeNode>();
-	const childLookups = new Map<
-		CollectionTreeNode,
-		Map<string, CollectionTreeNode>
-	>();
+	if (!collection) return undefined;
 
-	for (const name of collectionNames) {
-		const segments = name.split("/").filter(Boolean);
-		let currentLevel = root;
-		let currentLookup = rootLookup;
+	return toContentCollection(collection);
+}
 
-		for (let i = 0; i < segments.length; i++) {
-			const segment = segments[i];
-			const fullPath = segments.slice(0, i + 1).join("/");
-			let existing = currentLookup.get(segment);
-
-			if (!existing) {
-				existing = {
-					name: segment,
-					fullName: collectionNames.has(fullPath) ? fullPath : "",
-					children: [],
-				};
-				currentLevel.push(existing);
-				currentLookup.set(segment, existing);
-				childLookups.set(existing, new Map());
-			} else if (!existing.fullName && collectionNames.has(fullPath)) {
-				existing.fullName = fullPath;
-			}
-
-			currentLevel = existing.children;
-			currentLookup = childLookups.get(existing) ?? new Map();
-		}
-	}
-
-	return root;
+function toContentCollection(collection: Collection): ContentCollection {
+	return {
+		name: collection.name.split("/").pop() ?? collection.name,
+		path: collection.name,
+		type: collection.type,
+	};
 }
 
 /**

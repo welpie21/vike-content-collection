@@ -34,6 +34,7 @@ function makeSeriesCollection(
 		markdownDir: configDir,
 		entries,
 		index: new Map(entries.map((e) => [e.slug, e])),
+		tree: [],
 	};
 }
 
@@ -192,6 +193,7 @@ describe("getSeries", () => {
 			markdownDir: "/pages/blog",
 			entries,
 			index: new Map(entries.map((e) => [e.slug, e])),
+			tree: [],
 		});
 
 		const result = getSeries("blog", "a", "intro", {

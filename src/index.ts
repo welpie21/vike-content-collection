@@ -7,6 +7,7 @@ export {
 	findCollectionEntries,
 	getCollection,
 	getCollectionEntry,
+	getCollectionTree,
 } from "./runtime/get-collection.js";
 export type { PaginationResult } from "./runtime/helpers.js";
 export {
@@ -23,7 +24,8 @@ export {
 export {
 	getAdjacentEntries,
 	getBreadcrumbs,
-	getCollectionTree,
+	getContentCollection,
+	getContentCollections,
 	getEntryUrl,
 } from "./runtime/navigation.js";
 export { reference } from "./runtime/reference.js";
@@ -51,7 +53,9 @@ export type {
 	ContentCollectionDefinition,
 	ContentCollectionPluginOptions,
 	ContentRenderer,
+	EntryNode,
 	EntryUrlOptions,
+	FolderNode,
 	Heading,
 	InferComputed,
 	InferMetadata,
@@ -69,5 +73,8 @@ export type {
 	SlugInput,
 	TocNode,
 	TypedCollectionEntry,
+	TypedEntryNode,
+	TypedFolderNode,
+	TypedTreeNode,
 	ValidationIssue,
 } from "./types/index.js";

@@ -1,4 +1,8 @@
-import type { CollectionEntry } from "../plugin/collection-store.js";
+import type {
+	CollectionEntry,
+	CollectionTreeNode,
+	FolderNode,
+} from "../plugin/collection-store.js";
 import { getGlobalStore } from "../plugin/collection-store.js";
 import type {
 	CollectionEntryFilter,
@@ -7,6 +11,8 @@ import type {
 	InferComputed,
 	InferMetadata,
 	TypedCollectionEntry,
+	TypedFolderNode,
+	TypedTreeNode,
 } from "../types/index.js";
 
 function resolveCollection(name: string) {
@@ -65,19 +71,6 @@ export function getCollection(
 	return resolveCollection(name).entries.map((e) => toTypedEntry(e));
 }
 
-function matchesFilter<TM, TC>(
-	entry: TypedCollectionEntry<TM, TC>,
-	filter: CollectionEntryFilter<TM, TC>,
-): boolean {
-	if (typeof filter === "string") {
-		return entry.slug === filter;
-	}
-	if (filter instanceof RegExp) {
-		return filter.test(entry.slug);
-	}
-	return filter(entry);
-}
-
 /**
  * Look up a single entry by slug in a content collection.
  *
@@ -109,6 +102,55 @@ export function getCollectionEntry(
 	}
 
 	return undefined;
+}
+
+function toTypedTreeNode<TM, TC>(
+	node: CollectionTreeNode,
+): TypedTreeNode<TM, TC> {
+	if ("children" in node) {
+		return toTypedFolderNode<TM, TC>(node);
+	}
+
+	return {
+		name: node.name,
+		fullName: node.fullName,
+		entry: toTypedEntry<TM, TC>(node.entry),
+	};
+}
+
+function toTypedFolderNode<TM, TC>(node: FolderNode): TypedFolderNode<TM, TC> {
+	return {
+		name: node.name,
+		fullName: node.fullName,
+		children: node.children.map((c) => toTypedTreeNode<TM, TC>(c)),
+		...(node.entry && { entry: toTypedEntry<TM, TC>(node.entry) }),
+	};
+}
+
+/**
+ * Retrieve the entry hierarchy of a content collection as a tree.
+ *
+ * Returns a root `FolderNode` representing the collection. Entries whose
+ * slugs contain `/` are grouped into nested child nodes. An entry with
+ * an empty slug (`""`) becomes the root node's `entry`. Every node's
+ * `fullName` is always its full path in the tree.
+ *
+ * The tree is cached in the collection store and rebuilt automatically
+ * when entries change.
+ */
+export function getCollectionTree<K extends keyof CollectionMap>(
+	name: K,
+): TypedFolderNode<
+	InferMetadata<CollectionMap[K]>,
+	InferComputed<CollectionMap[K]>
+>;
+export function getCollectionTree(
+	name: string,
+): TypedFolderNode<Record<string, unknown>>;
+export function getCollectionTree(
+	name: string,
+): TypedFolderNode<Record<string, unknown>> {
+	return toTypedFolderNode(resolveCollection(name).tree);
 }
 
 /**
@@ -199,4 +241,17 @@ export function findCollectionEntries(
 		}
 	}
 	return result;
+}
+
+function matchesFilter<TM, TC>(
+	entry: TypedCollectionEntry<TM, TC>,
+	filter: CollectionEntryFilter<TM, TC>,
+): boolean {
+	if (typeof filter === "string") {
+		return entry.slug === filter;
+	}
+	if (filter instanceof RegExp) {
+		return filter.test(entry.slug);
+	}
+	return filter(entry);
 }

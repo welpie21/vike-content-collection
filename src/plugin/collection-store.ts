@@ -1,5 +1,20 @@
 import type { MetadataLineMap } from "./markdown.js";
 
+export interface FolderNode {
+	name: string;
+	fullName: string;
+	children: CollectionTreeNode[];
+	entry?: CollectionEntry;
+}
+
+export interface EntryNode {
+	name: string;
+	fullName: string;
+	entry: CollectionEntry;
+}
+
+export type CollectionTreeNode = FolderNode | EntryNode;
+
 export interface CollectionEntry {
 	filePath: string;
 	slug: string;
@@ -19,6 +34,102 @@ export interface Collection {
 	markdownDir: string;
 	entries: CollectionEntry[];
 	index: Map<string, CollectionEntry>;
+	tree: FolderNode;
+}
+
+/**
+ * Build a hierarchical tree from a flat list of entries using their slug paths.
+ *
+ * Returns a root `FolderNode` representing the collection itself. An entry
+ * with an empty slug (`""`) becomes the root's `entry`. Leaf slugs become
+ * `EntryNode`s carrying the entry data. Intermediate path segments (and
+ * slugs that also have deeper children) become `FolderNode`s. Every node's
+ * `fullName` is always set to its full path in the tree, regardless of
+ * whether it carries an `entry`.
+ */
+export function buildCollectionTree(entries: CollectionEntry[]): FolderNode {
+	const root: FolderNode = { name: "", fullName: "", children: [] };
+	const folderMap = new Map<string, FolderNode>();
+	const entryBySlug = new Map(entries.map((e) => [e.slug, e]));
+	const folderPaths = new Set<string>();
+
+	const rootEntry = entryBySlug.get("");
+
+	if (rootEntry) {
+		root.entry = rootEntry;
+	}
+
+	for (const entry of entries) {
+		if (entry.slug === "") continue;
+
+		const segments = entry.slug.split("/");
+		let path = "";
+
+		for (let i = 0; i < segments.length - 1; i++) {
+			path = path ? `${path}/${segments[i]}` : segments[i];
+			folderPaths.add(path);
+		}
+	}
+
+	for (const entry of entries) {
+		if (entry.slug === "") continue;
+
+		const segments = entry.slug.split("/");
+
+		let currentPath = "";
+		let currentLevel = root.children;
+
+		for (let i = 0; i < segments.length; i++) {
+			const segment = segments[i];
+			const isLeaf = i === segments.length - 1;
+
+			currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+
+			if (isLeaf && !folderPaths.has(currentPath)) {
+				currentLevel.push({
+					name: segment,
+					fullName: currentPath,
+					entry,
+				} satisfies EntryNode);
+			} else {
+				let folder = folderMap.get(currentPath);
+
+				if (!folder) {
+					const folderEntry = entryBySlug.get(currentPath);
+
+					folder = {
+						name: segment,
+						fullName: currentPath,
+						children: [],
+						...(folderEntry && { entry: folderEntry }),
+					};
+
+					folderMap.set(currentPath, folder);
+					currentLevel.push(folder);
+				} else if (isLeaf && !folder.entry) {
+					folder.entry = entry;
+				}
+
+				currentLevel = folder.children;
+			}
+		}
+	}
+
+	return root;
+}
+
+/** Deep-clone a value, replacing circular references with `null`. */
+function safeClone<T>(value: T): T {
+	const seen = new WeakSet();
+	return JSON.parse(
+		JSON.stringify(value, (_key, val) => {
+			if (typeof val === "object" && val !== null) {
+				if (seen.has(val)) return null;
+				seen.add(val);
+			}
+			return val;
+		}),
+	);
 }
 
 /**
@@ -34,6 +145,7 @@ export class CollectionStore {
 		if (existing) {
 			this.nameIndex.delete(existing.name);
 		}
+		collection.tree = buildCollectionTree(collection.entries);
 		this.collections.set(configDir, collection);
 		this.nameIndex.set(collection.name, collection);
 	}
@@ -82,6 +194,7 @@ export class CollectionStore {
 		}
 
 		collection.index.set(entry.slug, entry);
+		collection.tree = buildCollectionTree(collection.entries);
 	}
 
 	removeEntry(configDir: string, slug: string): void {
@@ -95,6 +208,7 @@ export class CollectionStore {
 				collection.entries.splice(idx, 1);
 			}
 			collection.index.delete(slug);
+			collection.tree = buildCollectionTree(collection.entries);
 		}
 	}
 
@@ -107,6 +221,8 @@ export class CollectionStore {
 				type,
 				entries: entries.map(({ lastModified, lineMap: _lineMap, ...e }) => ({
 					...e,
+					metadata: safeClone(e.metadata),
+					computed: safeClone(e.computed),
 					lastModified: lastModified?.toISOString(),
 				})),
 			};
@@ -180,6 +296,7 @@ export function hydrateGlobalStore(data: SerializableCollections): void {
 			markdownDir: "",
 			entries,
 			index,
+			tree: { name: "", fullName: "", children: [] },
 		});
 	}
 }
