@@ -3,6 +3,7 @@ import { access, readdir, readFile } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { slug as githubSlug } from "github-slugger";
+import type { InlineConfig } from "vite";
 import type { ZodSchema } from "zod";
 import type {
 	ComputedFieldInput,
@@ -210,6 +211,29 @@ export function loadTsconfigAliases(
 	return aliases;
 }
 
+/**
+ * @internal Options for the throwaway Vite server used to `ssrLoadModule`
+ * `+Content.ts` files during a build. It never serves or reloads anything, so
+ * the file watcher and HMR websocket are disabled: on Linux the watcher crawls
+ * and `lstat`s the whole project root, starving the build's main thread.
+ */
+export function createBuildServerConfig(
+	root: string,
+	aliases: Record<string, string>,
+): InlineConfig {
+	const aliasEntries = Object.entries(aliases).map(([find, replacement]) => ({
+		find,
+		replacement,
+	}));
+	return {
+		root,
+		configFile: false,
+		logLevel: "silent",
+		server: { middlewareMode: true, watch: null, ws: false },
+		resolve: aliasEntries.length > 0 ? { alias: aliasEntries } : undefined,
+	};
+}
+
 const configCache = new Map<string, ResolvedContentConfig>();
 
 export function vikeContentCollectionPlugin(
@@ -320,16 +344,9 @@ export function vikeContentCollectionPlugin(
 			);
 
 			const { createServer } = await import("vite");
-			const aliasEntries = Object.entries(viteAliases).map(
-				([find, replacement]) => ({ find, replacement }),
-			);
-			buildServer = (await createServer({
-				root,
-				configFile: false,
-				logLevel: "silent",
-				server: { middlewareMode: true },
-				resolve: aliasEntries.length > 0 ? { alias: aliasEntries } : undefined,
-			})) as unknown as PluginDevServer;
+			buildServer = (await createServer(
+				createBuildServerConfig(root, viteAliases),
+			)) as unknown as PluginDevServer;
 		}
 		return buildServer;
 	}
