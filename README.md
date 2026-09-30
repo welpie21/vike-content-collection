@@ -862,6 +862,15 @@ bun run bench:save               # Save current results as baseline
 bun run bench -- --threshold 15  # Custom regression threshold (%)
 ```
 
+### Releasing
+
+Publishing to npm is automated by the [release workflow](.github/workflows/release.yml), which runs when a GitHub release is published:
+
+1. Bump `version` in `package.json` and merge the change into `main`.
+2. Publish a GitHub release with a new tag that is the version prefixed with `v` (e.g. `v1.0.4` for version `1.0.4`).
+
+The workflow fails without publishing if the tag is not formatted as `v<major>.<minor>.<patch>` or does not match the `package.json` version of the tagged commit. Otherwise it runs the tests and publishes to npm with [trusted publishing](https://docs.npmjs.com/trusted-publishers), so no npm token is stored in the repository.
+
 ## Requirements
 
 - Node.js >= 18
