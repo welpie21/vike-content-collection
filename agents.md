@@ -91,6 +91,7 @@ All code must follow the SOLID principles:
 
 - Use **tabs** for indentation and **double quotes** for strings (enforced by Biome).
 - Run `biome check .` (or `bun run lint`) to verify linting before finishing.
+- Run `bun run typecheck` before finishing: `bun test` strips types without checking them, and CI type-checks every pull request.
 - Prefer named exports. The main `src/index.ts` re-exports the public API.
 - Type exports go in `src/types/`. Runtime code should import types from there.
 - Keep `src/plugin/` (build-time Vite plugin code) and `src/runtime/` (consumer-facing APIs) cleanly separated.
@@ -103,6 +104,7 @@ All code must follow the SOLID principles:
 | `bun install` | Install dependencies |
 | `bun run build` | Compile TypeScript to `dist/` |
 | `bun run dev` | Watch mode compilation |
+| `bun run typecheck` | Type-check `src/` without emitting (`tsc --noEmit`) |
 | `bun test` | Run all unit tests |
 | `bun run lint` | Check linting (Biome) |
 | `bun run lint:fix` | Auto-fix lint issues |

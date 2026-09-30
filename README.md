@@ -846,6 +846,7 @@ import type {
 ```bash
 bun install          # Install dependencies
 bun run build        # Compile TypeScript to dist/
+bun run typecheck    # Type-check src/ without emitting (runs on every PR)
 bun test             # Run all unit tests
 bun run bench        # Run benchmarks and compare against baseline
 bun run bench:save   # Run benchmarks and save as new baseline

@@ -69,6 +69,7 @@ Config export from `vike-content-collection/config`:
 
 ## Development
 
+- `bun run typecheck` -- type-check `src/` with `tsc --noEmit`; runs on every pull request via `.github/workflows/ci.yml`
 - `bun run bench` -- run benchmarks and compare against saved baseline (exits 1 on regression)
 - `bun run bench:save` -- run benchmarks and save results as the new baseline
 - Benchmarks cover parsing, validation, sorting, grouping, rendering, and navigation functions
