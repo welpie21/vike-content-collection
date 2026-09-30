@@ -69,10 +69,13 @@ Config export from `vike-content-collection/config`:
 
 ## Development
 
+- `bun run typecheck` -- type-check `src/` with `tsc --noEmit`; runs on every pull request via `.github/workflows/ci.yml`
 - `bun run bench` -- run benchmarks and compare against saved baseline (exits 1 on regression)
 - `bun run bench:save` -- run benchmarks and save results as the new baseline
 - Benchmarks cover parsing, validation, sorting, grouping, rendering, and navigation functions
 - Regression threshold defaults to ±10%, configurable via `--threshold`
+- Releases are published to npm by `.github/workflows/release.yml` when a GitHub release is published, using npm trusted publishing (no npm token)
+- The release tag must be formatted as `v<major>.<minor>.<patch>` and match the `package.json` version (e.g. `v1.0.4` for `1.0.4`), otherwise the workflow fails without publishing
 
 ## Requirements
 

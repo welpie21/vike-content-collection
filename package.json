@@ -32,6 +32,7 @@
 	"scripts": {
 		"dev": "tsc --watch",
 		"build": "tsc",
+		"typecheck": "tsc --noEmit",
 		"test": "bun test",
 		"lint": "biome check .",
 		"lint:fix": "biome check --fix .",
